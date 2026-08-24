@@ -1,0 +1,55 @@
+{
+  "title": "AI Index · 视觉方向",
+  "question": "哪一种视觉世界最像你愿意长期维护的个人 AI 索引？",
+  "options": [
+    {
+      "id": "assigned",
+      "label": "Crate Index",
+      "kicker": "THE ROLL",
+      "lineage": "唱片箱、内页曲目表、压片编号",
+      "thesis": "把六个分类做成一只可浏览的唱片箱：分类是隔板，Top 3 是曲目表，夯 / 人上人 / NPC 是压片章。首页保持单列、快速扫描，但有鲜明的个人收藏气质。",
+      "palette": ["#111313", "#E7E5DF", "#B7FF36", "#747A7A"],
+      "materials": ["哑光黑唱片套", "冷灰纸张", "丝网印刷颗粒", "细密唱片沟槽"],
+      "viewport": "单列纵向唱片箱；六块大分类隔板依次露出，每块直接展示数量与评分最高的三条内容。",
+      "risk": "隐喻过重会影响扫读；实现时必须让它首先是清晰的索引，其次才像唱片收藏。",
+      "sketch": ".impeccable/sketches/assigned.webp"
+    },
+    {
+      "id": "pc98",
+      "label": "PC-98 Field",
+      "kicker": "CHALLENGER 01",
+      "lineage": "日本早期个人电脑、十六色界面、像素字库",
+      "thesis": "把 AI Index 做成一台专用知识终端。分类、计数和评分都成为紧凑的系统字段，信息密度高，开发者气质直接。",
+      "palette": ["#101521", "#F0EAD6", "#42D7C5", "#EF6A8A"],
+      "materials": ["低分辨率像素栅格", "CRT 微弱扫描纹", "硬边窗口", "位图图标"],
+      "viewport": "整页像一个稳定的桌面系统；顶部为目录命令区，下方六个分类按单列窗口展开。",
+      "risk": "容易沦为复古主题皮肤；长标题和中英文界面必须仍然舒展、可读。",
+      "sketch": ".impeccable/sketches/pc98.webp",
+      "hero": "https://impeccable.style/worlds/cards/digital-design-canon-pc98-sixteen-color-field-hero.webp",
+      "board": "https://impeccable.style/worlds/cards/digital-design-canon-pc98-sixteen-color-field.webp"
+    },
+    {
+      "id": "data_field",
+      "label": "Data Sublime",
+      "kicker": "CHALLENGER 02",
+      "lineage": "Ryoji Ikeda、数据装置、校准标记",
+      "thesis": "把个人判断呈现成一片精确的数据场：巨大的分类编号、极细规则线和高密度元数据，共同构成冷静而强烈的索引。",
+      "palette": ["#050505", "#F4F4F0", "#FF3B30", "#8A8A88"],
+      "materials": ["黑白高反差", "工程校准线", "微缩编号", "单一红色信号"],
+      "viewport": "六个分类成为连续的数据分区；Top 3 以极清晰的编号行嵌入，每区保留大面积呼吸空间。",
+      "risk": "高反差和密集刻度可能显得压迫；必须控制噪声并为正文保留足够字号。",
+      "sketch": ".impeccable/sketches/data-field.webp",
+      "hero": "https://impeccable.style/worlds/cards/ikeda-datamatics-hero.webp",
+      "board": "https://impeccable.style/worlds/cards/ikeda-datamatics.webp"
+    }
+  ],
+  "reroll": true,
+  "canon": true,
+  "canonCard": {
+    "label": "Modern Directory",
+    "thesis": "以现代知识库的类别标准做满完成度：白底、无衬线、克制分隔线、清晰搜索框与六个分类列表。没有主题隐喻，所有注意力都交给内容。",
+    "viewport": "窄幅单列首页；站名与搜索位于顶部，分类按固定顺序堆叠，数量与 Top 3 直接可见。",
+    "sketch": ".impeccable/sketches/canon.webp"
+  },
+  "steer": true
+}

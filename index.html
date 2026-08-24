@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="AI Index: a public, personal index of useful AI tools, products, articles, standards, and ideas."
+    />
+    <meta name="theme-color" content="#111313" />
+    <title>AI Index</title>
+    <link rel="stylesheet" href="./styles.css?v=20260813-fixed-header-center-main-v23" />
+    <script src="./app.js?v=20260813-five-categories-v21" defer></script>
+  </head>
+  <body><!--
+      DIRECTION CONTRACT — Crate Index / Read mode / FORM seed ccfbb7c7.
+      THESIS: 首页是一只可浏览的唱片箱；五个固定分类是连续纸套，数量是目录编号，Top 3 是曲目表，评分是压片章。
+      OWN-WORLD: 哑光石墨、冷灰纸、酸绿信号、超窄标签字、真实纤维纹理和纸张接触阴影共同构成私人档案盒。
+      STORY: 从顶部目录槽开始，沿五张纸套依次浏览，最后抵达 Ideas；没有 Hero、榜单或推荐流打断。
+      FIRST VIEWPORT: 首屏必须同时建立站名、搜索、评分顺序和连续纸套语法；内容可扫读，长标题不丢失。
+      FORM: assigned roll 4，seed ccfbb7c7。实体感只来自材料、边缘与 4px 抽出反馈；禁止透视场景、唱片插画、卡片墙、渐变、玻璃、霓虹、衬线数字花园和栅格化 UI。
+    -->
+    <a class="skip-link" href="#main-content" data-i18n="skipLink">跳到主要内容</a>
+
+    <header class="masthead" aria-label="站点页头" data-i18n-aria="headerAria">
+      <div class="masthead__inner">
+        <a class="brand" href="./" aria-label="AI Index 首页" data-i18n-aria="homeAria">
+          <span class="brand__copy">
+            <strong>AI Index</strong>
+            <span>MY PERSONAL AI KNOWLEDGE INDEX · DEMO CONTENT</span>
+          </span>
+        </a>
+
+        <form class="catalog-search" id="search-form" role="search">
+          <svg class="catalog-search__icon" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="10.8" cy="10.8" r="6.6"></circle>
+            <path d="m16 16 4.2 4.2"></path>
+          </svg>
+          <label class="sr-only" for="search-input" data-i18n="searchLabel">搜索 AI Index</label>
+          <input
+            id="search-input"
+            type="search"
+            autocomplete="off"
+            spellcheck="false"
+            placeholder="搜索标题或描述"
+            aria-controls="search-results"
+            aria-expanded="false"
+          />
+          <button class="search-clear" id="search-clear" type="button" hidden data-i18n-aria="clearSearch">
+            <span aria-hidden="true"></span>
+            <span class="sr-only" data-i18n="clearSearch">清除搜索</span>
+          </button>
+          <span class="catalog-search__code" aria-hidden="true">CAT.00</span>
+        </form>
+
+        <button class="language-switch" id="language-switch" type="button" aria-label="Switch interface to English">
+          <span class="language-switch__muted">中</span>
+          <span aria-hidden="true">/</span>
+          <span class="language-switch__active">EN</span>
+        </button>
+      </div>
+
+      <svg class="grooves" viewBox="0 0 180 90" aria-hidden="true">
+        <path d="M180 0a90 90 0 0 0-90 90"></path>
+        <path d="M180 10a80 80 0 0 0-80 80"></path>
+        <path d="M180 20a70 70 0 0 0-70 70"></path>
+        <path d="M180 30a60 60 0 0 0-60 60"></path>
+        <path d="M180 40a50 50 0 0 0-50 50"></path>
+        <path d="M180 50a40 40 0 0 0-40 40"></path>
+      </svg>
+
+      <section class="search-results" id="search-results" aria-live="polite" hidden>
+        <div class="search-results__header">
+          <h2 data-i18n="results">搜索结果</h2>
+          <span id="result-count"></span>
+        </div>
+        <ol id="result-list"></ol>
+        <p class="search-empty" id="search-empty" hidden data-i18n="empty">没有匹配的条目。</p>
+        <button class="search-more" id="search-more" type="button" hidden></button>
+      </section>
+    </header>
+
+    <main id="main-content">
+      <div class="crate" aria-label="AI Index 分类" data-i18n-aria="indexAria">
+        <div class="crate__top">
+          <span class="rating-legend" data-i18n="ratingLegend">评分：夯 &gt; 人上人 &gt; NPC</span>
+        </div>
+        <div class="sleeve-stage">
+          <div class="sleeve-stack" id="category-stack"></div>
+          <div class="crate__base" aria-hidden="true">
+            <span class="crate__base-center"></span>
+            <span class="crate__base-left"></span>
+            <span class="crate__base-right"></span>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <footer class="site-footer">
+      <span>AI Index</span>
+      <span>MAINTAINED BY AGENTS · FULLY PUBLIC</span>
+    </footer>
+
+    <noscript>
+      <p class="noscript">此页面需要 JavaScript 来展示索引与搜索结果。</p>
+    </noscript>
+  </body>
+</html>

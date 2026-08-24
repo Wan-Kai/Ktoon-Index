@@ -1,0 +1,652 @@
+.detail-body {
+  grid-template-rows: auto minmax(min-content, 1fr) auto;
+}
+
+.detail-main {
+  align-self: center;
+  width: min(calc(100% - 48px), 1560px);
+  padding: clamp(24px, 4vh, 48px) 0 34px;
+  margin: 0 auto;
+}
+
+/*
+ * 详情页沿用首页的实体档案盒语义。深色内框负责制造黑暗环境，
+ * 纸张只承担阅读，不再用额外浅色面板模拟层级。
+ */
+.detail-crate {
+  position: relative;
+  padding: clamp(20px, 2.6vw, 38px) clamp(20px, 3vw, 44px) clamp(32px, 3.2vw, 48px);
+  overflow: hidden;
+  background-color: #151817;
+  background-image: url("./assets/graphite-grain.webp");
+  background-size: 760px 760px;
+  border: 1px solid rgba(231, 229, 223, 0.26);
+  border-radius: 5px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.13),
+    inset 1px 0 0 rgba(255, 255, 255, 0.05),
+    inset -1px 0 0 rgba(0, 0, 0, 0.62),
+    inset 0 -24px 38px rgba(0, 0, 0, 0.55),
+    0 28px 64px rgba(0, 0, 0, 0.5);
+}
+
+/* 顶部内槽与底部承托共用同一坐标系，避免装饰线漂浮在纸张表面。 */
+.detail-crate::before,
+.detail-crate::after {
+  position: absolute;
+  z-index: 0;
+  right: 12px;
+  left: 12px;
+  content: "";
+  pointer-events: none;
+}
+
+.detail-crate::before {
+  top: 11px;
+  height: 2px;
+  background: #090b0a;
+  border-top: 1px solid rgba(231, 229, 223, 0.12);
+  box-shadow: 0 5px 12px rgba(0, 0, 0, 0.72);
+}
+
+.detail-crate::after {
+  bottom: 11px;
+  height: 11px;
+  background: #0b0d0c;
+  border-top: 1px solid rgba(231, 229, 223, 0.28);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.85);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 -8px 18px rgba(0, 0, 0, 0.48);
+}
+
+.dossier {
+  position: relative;
+  z-index: 1;
+  isolation: isolate;
+  display: grid;
+  grid-template-columns: minmax(220px, 0.22fr) minmax(0, 0.78fr);
+  grid-template-rows: auto auto 1fr;
+  min-height: 650px;
+  color: var(--ink);
+  background: transparent;
+  text-shadow: 0 0 0.25px rgba(23, 25, 24, 0.28);
+}
+
+/*
+ * 主纸张与右侧索引片均使用首页纸纹。索引片与主纸处于同一材质层，
+ * 并向纸面内部重叠，覆盖连接处的右边线，避免呈现独立贴片感。
+ */
+.dossier::before,
+.dossier::after {
+  position: absolute;
+  content: "";
+  background-color: var(--paper);
+  background-image: url("./assets/paper-grain.webp");
+  background-size: 720px 720px;
+}
+
+.dossier::before {
+  z-index: 1;
+  inset: 0;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 8px;
+  background-position: right top;
+  box-shadow:
+    inset 1px 0 0 rgba(255, 255, 255, 0.46),
+    inset -1px 0 0 rgba(23, 25, 24, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.58),
+    inset 0 -2px 0 rgba(23, 25, 24, 0.16),
+    0 22px 34px rgba(0, 0, 0, 0.5),
+    0 6px 12px rgba(0, 0, 0, 0.34);
+}
+
+.dossier::after {
+  z-index: 1;
+  top: 0;
+  right: -14px;
+  width: 42px;
+  height: 126px;
+  border: 0;
+  border-radius: 0;
+  background-position: right 14px top;
+  box-shadow: none;
+  clip-path: path("M 0 0 H 34 C 38 0 42 4 42 8 V 96 C 42 100 41 102 38 105 L 32 112 C 29 115 28 117 28 121 V 126 H 0 Z");
+}
+
+.dossier__folio,
+.dossier__header,
+.dossier__spine,
+.dossier__content {
+  position: relative;
+  z-index: 2;
+}
+
+.dossier__folio {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(170px, 1fr) auto minmax(170px, 1fr);
+  align-items: center;
+  min-height: 40px;
+  padding: 0 18px;
+  border-bottom: 1px solid rgba(23, 25, 24, 0.54);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.5625rem;
+  letter-spacing: 0.085em;
+  text-transform: uppercase;
+}
+
+.dossier__folio > span {
+  align-self: start;
+  justify-self: center;
+  padding-top: 5px;
+  line-height: 1.2;
+}
+
+.dossier__folio > time {
+  align-self: start;
+  justify-self: end;
+  padding-top: 5px;
+  line-height: 1.2;
+}
+
+.dossier__back {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  width: fit-content;
+  min-height: 38px;
+  color: #343936;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.625rem;
+  letter-spacing: 0.035em;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.dossier__back-mark {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.dossier__back:hover,
+.dossier__back:focus-visible {
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.dossier__header {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 160px;
+  gap: clamp(32px, 4vw, 60px);
+  align-items: end;
+  padding: clamp(34px, 4vw, 50px) clamp(38px, 4.5vw, 68px) 30px;
+  border-bottom: 1px solid rgba(23, 25, 24, 0.54);
+}
+
+.dossier__headline h1 {
+  max-width: 15ch;
+  margin: 0;
+  font-family: "Iowan Old Style", "Times New Roman", "Songti SC", STSong, SimSun, serif;
+  font-size: clamp(3.65rem, 6vw, 5rem);
+  font-weight: 700;
+  line-height: 0.9;
+  letter-spacing: -0.045em;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+
+.dossier__headline p {
+  max-width: 62ch;
+  padding-top: 14px;
+  margin: 18px 0 0;
+  color: #373d3a;
+  border-top: 1px solid rgba(23, 25, 24, 0.24);
+  font-family: "IBM Plex Sans Condensed", sans-serif;
+  font-size: 0.9375rem;
+  font-weight: 400;
+  line-height: 1.45;
+}
+
+/* 评级只保留一个印刷字，不使用徽章、底色或解释性标签。 */
+.verdict-stamp {
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  width: 100%;
+  padding: 0 2px 2px 0;
+  color: var(--ink);
+  border: 0;
+}
+
+.verdict-stamp strong {
+  display: block;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  font-family: "Songti SC", STSong, SimSun, serif;
+  font-size: 3.8rem;
+  font-weight: 700;
+  line-height: 0.9;
+}
+
+.dossier__spine {
+  grid-column: 1;
+  grid-row: 3;
+  padding: 28px 28px 42px;
+  background: rgba(213, 211, 204, 0.2);
+  border-right: 1px solid rgba(23, 25, 24, 0.22);
+  border-radius: 0 0 0 8px;
+  box-shadow:
+    inset -10px 0 22px rgba(23, 25, 24, 0.025),
+    inset 1px 0 0 rgba(255, 255, 255, 0.34);
+}
+
+.metadata-list {
+  padding-top: 5px;
+  margin: 0;
+  border-top: 3px solid var(--ink);
+}
+
+.metadata-list > div {
+  padding: 12px 0 14px;
+  border-bottom: 1px solid rgba(23, 25, 24, 0.18);
+}
+
+.metadata-list dt {
+  margin-bottom: 6px;
+  color: #4a514d;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.625rem;
+  letter-spacing: 0.075em;
+  text-transform: uppercase;
+}
+
+.metadata-list dd {
+  margin: 0;
+  color: #2f3432;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.71875rem;
+  line-height: 1.52;
+}
+
+.metadata-list a {
+  text-underline-offset: 3px;
+}
+
+.dossier__content {
+  grid-column: 2;
+  grid-row: 3;
+  padding: 28px clamp(40px, 4.6vw, 68px) 44px;
+}
+
+.editorial-heading {
+  display: flex;
+  gap: 24px;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 7px 0 8px;
+  border-top: 3px solid var(--ink);
+  border-bottom: 1px solid rgba(23, 25, 24, 0.38);
+}
+
+.editorial-heading h2,
+.references > h2 {
+  margin: 0;
+  font-family: "Iowan Old Style", "Times New Roman", "Songti SC", STSong, SimSun, serif;
+  font-size: 1.125rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.editorial-heading > span {
+  color: #505753;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.625rem;
+  letter-spacing: 0.075em;
+}
+
+.personal-note {
+  max-width: 82ch;
+  padding: 21px 0 4px;
+  color: #222624;
+  column-count: 2;
+  column-gap: clamp(28px, 3.5vw, 48px);
+  column-rule: 1px solid rgba(23, 25, 24, 0.18);
+  font-family: "Iowan Old Style", "Times New Roman", "Songti SC", STSong, SimSun, serif;
+  font-size: 1rem;
+  line-height: 1.68;
+  text-align: justify;
+  text-justify: inter-ideograph;
+}
+
+.personal-note p {
+  margin: 0;
+  break-inside: avoid;
+}
+
+.primary-source {
+  display: grid;
+  grid-template-columns: 1fr 24px;
+  gap: 18px;
+  align-items: center;
+  min-height: 54px;
+  padding: 9px 16px;
+  margin: 25px 0 30px;
+  color: var(--ink);
+  background: rgba(183, 255, 54, 0.58);
+  border: 1px solid #6f9e13;
+  text-decoration: none;
+}
+
+.primary-source > span {
+  display: grid;
+  gap: 1px;
+}
+
+.primary-source small {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.625rem;
+  letter-spacing: 0.08em;
+}
+
+.primary-source strong {
+  font-family: "IBM Plex Sans Condensed", sans-serif;
+  font-size: 0.9375rem;
+  font-weight: 500;
+}
+
+.link-arrow {
+  justify-self: end;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 1.15rem;
+  line-height: 1;
+}
+
+.primary-source:hover,
+.primary-source:focus-visible {
+  background: rgba(197, 255, 93, 0.76);
+  box-shadow:
+    inset 0 1px rgba(255, 255, 255, 0.54),
+    inset 0 -1px rgba(23, 25, 24, 0.1);
+}
+
+.references {
+  max-width: 940px;
+}
+
+.references > h2 {
+  padding: 7px 0 8px;
+  border-top: 3px solid var(--ink);
+  border-bottom: 1px solid rgba(23, 25, 24, 0.38);
+}
+
+.references ul {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding: 0;
+  margin: 0;
+  list-style: none;
+  border-bottom: 1px solid rgba(23, 25, 24, 0.3);
+}
+
+.references li + li {
+  border-left: 1px solid rgba(23, 25, 24, 0.2);
+}
+
+.references a {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) 18px;
+  gap: 10px;
+  align-items: start;
+  min-height: 86px;
+  padding: 13px 14px;
+  text-decoration: none;
+}
+
+.references a > b {
+  color: #59605c;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.625rem;
+  font-weight: 400;
+}
+
+.references a > span:not(.link-arrow) {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.references strong {
+  font-family: "IBM Plex Sans Condensed", sans-serif;
+  font-size: 0.9375rem;
+  font-weight: 500;
+}
+
+.references small {
+  color: #4b514e;
+  font-family: "Iowan Old Style", "Times New Roman", "Songti SC", STSong, SimSun, serif;
+  font-size: 0.8125rem;
+  line-height: 1.42;
+}
+
+.references code {
+  grid-column: 2 / 4;
+  grid-row: 2;
+  color: #3f4643;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.625rem;
+}
+
+.references .link-arrow {
+  grid-column: 3;
+  grid-row: 1;
+  font-size: 0.95rem;
+}
+
+.references a:hover,
+.references a:focus-visible {
+  background: rgba(255, 255, 255, 0.18);
+  box-shadow:
+    inset 0 1px rgba(255, 255, 255, 0.46),
+    inset 0 -1px rgba(23, 25, 24, 0.08);
+}
+
+@media (max-width: 1080px) {
+  .detail-main {
+    width: min(calc(100% - 32px), 1560px);
+  }
+
+  .detail-crate {
+    padding-inline: 34px;
+  }
+
+  .dossier {
+    grid-template-columns: 210px minmax(0, 1fr);
+  }
+
+  .dossier__header {
+    grid-template-columns: minmax(0, 1fr) 150px;
+    gap: 28px;
+    padding-inline: 34px;
+  }
+
+  .dossier__headline h1 {
+    font-size: 3.9rem;
+  }
+
+  .dossier__content {
+    padding-inline: 32px;
+  }
+}
+
+@media (max-width: 820px) {
+  .detail-main {
+    width: min(calc(100% - 20px), 760px);
+    padding-top: 16px;
+  }
+
+  .detail-crate {
+    padding: 12px 12px 24px;
+  }
+
+  .detail-crate::before {
+    top: 6px;
+  }
+
+  .detail-crate::after {
+    right: 7px;
+    bottom: 7px;
+    left: 7px;
+    height: 8px;
+  }
+
+  .dossier {
+    display: flex;
+    min-height: 0;
+    flex-direction: column;
+  }
+
+  .dossier::before {
+    border-radius: 7px;
+  }
+
+  .dossier::after {
+    top: 0;
+    right: -7px;
+    width: 25px;
+    height: 92px;
+    border-radius: 0;
+    background-position: right 7px top;
+    clip-path: path("M 0 0 H 19 C 22 0 25 3 25 6 V 66 C 25 69 24 70 22 72 L 19 76 C 18 78 18 80 18 83 V 92 H 0 Z");
+  }
+
+  .dossier__folio {
+    grid-template-columns: 1fr auto;
+    padding-inline: 15px;
+  }
+
+  .dossier__folio > span {
+    display: none;
+  }
+
+  .dossier__header {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 22px;
+    padding: 30px 22px 26px;
+  }
+
+  .dossier__headline h1 {
+    font-size: clamp(2.8rem, 13vw, 3.8rem);
+  }
+
+  .dossier__headline p {
+    margin-top: 15px;
+    font-size: 0.9rem;
+  }
+
+  .verdict-stamp {
+    justify-content: flex-start;
+    max-width: none;
+    padding: 0;
+  }
+
+  .verdict-stamp strong {
+    font-size: 3.1rem;
+  }
+
+  .dossier__spine {
+    padding: 18px 22px;
+    border-right: 0;
+    border-radius: 0;
+    border-bottom: 1px solid rgba(23, 25, 24, 0.22);
+  }
+
+  .metadata-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0 18px;
+  }
+
+  .metadata-list > div {
+    min-width: 0;
+    padding: 10px 0;
+  }
+
+  .metadata-list > div:first-child {
+    grid-column: 1 / -1;
+  }
+
+  .dossier__content {
+    padding: 26px 22px 38px;
+  }
+
+  .personal-note {
+    column-count: 1;
+    font-size: 1rem;
+    line-height: 1.72;
+    text-align: left;
+  }
+
+  .personal-note p + p {
+    margin-top: 14px;
+  }
+
+  .primary-source {
+    margin-block: 23px 28px;
+  }
+
+  .references ul {
+    grid-template-columns: 1fr;
+  }
+
+  .references li + li {
+    border-top: 1px solid rgba(23, 25, 24, 0.18);
+    border-left: 0;
+  }
+
+  .references a {
+    min-height: 72px;
+  }
+}
+
+@media (max-width: 520px) {
+  .detail-main {
+    width: calc(100% - 12px);
+  }
+
+  .detail-crate {
+    padding: 7px 7px 19px;
+  }
+
+  .dossier__folio > time {
+    display: none;
+  }
+
+  .dossier__folio {
+    grid-template-columns: 1fr;
+  }
+
+  .metadata-list {
+    grid-template-columns: 1fr;
+  }
+
+  .metadata-list > div:first-child {
+    grid-column: auto;
+  }
+
+  .editorial-heading > span {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dossier,
+  .dossier * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "title": "AI Index · 首页构图",
+  "question": "在同一个 Crate Index 视觉世界里，哪一种页面骨架最适合长期浏览？",
+  "options": [
+    {
+      "id": "continuous_sleeves",
+      "label": "A · Continuous Sleeves",
+      "kicker": "最忠实于方案 1",
+      "lineage": "连续纸套、唱片箱、左右曲目表",
+      "thesis": "六个分类像连续叠放的纸套；分类和数量在左，Top 3 在右。一屏扫读效率最高，唱片箱识别也最直接。",
+      "palette": ["#111313", "#E7E5DF", "#B7FF36", "#747A7A"],
+      "materials": ["冷灰纸套", "哑光箱体", "压片标签", "轻微叠层"],
+      "viewport": "1536×1024；六个分类紧密叠放并完整建立系统。",
+      "risk": "分类贴得很紧，真实内容变长时需要谨慎处理行高与折行。",
+      "sketch": ".impeccable/mocks/home-a-continuous-sleeves.png"
+    },
+    {
+      "id": "catalog_spine",
+      "label": "B · Catalog Spine",
+      "kicker": "最理性",
+      "lineage": "目录书脊、连续曲目表、唱针定位线",
+      "thesis": "左侧目录脊承载分类和数量，右侧是一张连续内容纸。隐喻更克制，扩展性和快速比较最强。",
+      "palette": ["#111313", "#E7E5DF", "#B7FF36", "#747A7A"],
+      "materials": ["黑色目录脊", "连续纸面", "精密规则线", "酸绿定位线"],
+      "viewport": "1536×1024；27% 分类脊 + 73% 内容场。",
+      "risk": "左右两区的结构更像目录系统，唱片箱的收藏感会弱一些。",
+      "sketch": ".impeccable/mocks/home-b-catalog-spine.png"
+    },
+    {
+      "id": "offset_tabs",
+      "label": "C · Offset Divider Stack",
+      "kicker": "最有收藏感",
+      "lineage": "错位隔板、独立标签、纸质目录卡",
+      "thesis": "每个分类拥有独立隔板和呼吸带，标签左右错位。浏览节奏更从容，也更像一套持续积累的私人收藏。",
+      "palette": ["#111313", "#E7E5DF", "#B7FF36", "#747A7A"],
+      "materials": ["独立纸板", "错位标签", "黑色间隙", "细唱针线"],
+      "viewport": "1536×1024；窄幅居中单列，分类之间有明确停顿。",
+      "risk": "纵向更长，首页不能在较矮屏幕上一眼看到全部内容。",
+      "sketch": ".impeccable/mocks/home-c-offset-tabs.png"
+    }
+  ],
+  "reroll": false,
+  "canon": false,
+  "steer": true
+}

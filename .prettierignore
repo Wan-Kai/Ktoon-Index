@@ -1,0 +1,7 @@
+assets/
+dist/
+node_modules/
+.impeccable/
+*.html
+*.css
+app.js

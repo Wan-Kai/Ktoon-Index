@@ -1,0 +1,9 @@
+.DS_Store
+node_modules/
+dist/
+coverage/
+*.log
+.impeccable/questions/
+.impeccable/detail-v2-detect.json
+.impeccable/detail-v3-type-detect.json
+
