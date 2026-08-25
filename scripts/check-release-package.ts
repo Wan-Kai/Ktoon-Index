@@ -84,7 +84,7 @@ function extractSrcsetUrls(source: string): string[] {
 /**
  * 提取 HTML 与 CSS 中会由浏览器加载的静态引用。
  *
- * 为什么存在：Pages 子路径和缺失资产必须在上传前发现。HTML 支持带引号或无引号的 src/href/poster/data/srcset，CSS 支持 url() 与字符串 @import；其他文件返回空集合。排查时查看构建后源码。不能收窄为双引号属性或只检查 url()，否则合法语法可绕过资源闭环。
+ * 为什么存在：Pages 子路径和缺失资产必须在上传前发现。HTML 支持带引号或无引号的 src/href/poster/data/srcset，CSS 支持 url() 与字符串 @import；其他文件返回空集合。函数不会主动抛错，畸形且无法匹配的 HTML/CSS 会被忽略，因此上游仍必须由 Vite 生成合法源码；排查时查看构建后文件。不能收窄为双引号属性或只检查 url()，否则合法语法可绕过资源闭环。
  */
 function extractReferences(file: string, source: string): string[] {
   if (file.endsWith(".html")) {
@@ -126,16 +126,34 @@ async function checkLocalReference(
   problems: string[],
 ): Promise<boolean> {
   if (/^(?:data:|https?:|mailto:|tel:|#)/iu.test(reference)) return false;
-  const pathname = reference.split(/[?#]/u, 1)[0];
-  if (!pathname) return false;
-  if (pathname.startsWith("/")) {
+  if (reference.startsWith("//")) return false;
+  if (reference.startsWith("/")) {
     problems.push(
       `静态引用不能使用站点根路径：${relative(outputDirectory, sourceFile)} -> ${reference}`,
     );
     return true;
   }
 
-  const target = resolve(dirname(sourceFile), pathname);
+  const virtualRoot = "/__release__/";
+  const sourcePath = relative(outputDirectory, sourceFile).split(sep).join("/");
+  let pathname = "";
+  try {
+    const parsed = new URL(reference, `https://release.invalid${virtualRoot}${sourcePath}`);
+    if (parsed.origin !== "https://release.invalid" || !parsed.pathname.startsWith(virtualRoot)) {
+      problems.push(
+        `静态引用按 URL 解析后越出发布目录：${relative(outputDirectory, sourceFile)} -> ${reference}`,
+      );
+      return true;
+    }
+    pathname = decodeURIComponent(parsed.pathname.slice(virtualRoot.length));
+  } catch {
+    problems.push(
+      `静态引用 URL 无法解析：${relative(outputDirectory, sourceFile)} -> ${reference}`,
+    );
+    return true;
+  }
+
+  const target = resolve(outputDirectory, pathname);
   const escaped = relative(outputDirectory, target);
   if (escaped === ".." || escaped.startsWith(`..${sep}`)) {
     problems.push(`静态引用越出发布目录：${relative(outputDirectory, sourceFile)} -> ${reference}`);
@@ -212,7 +230,7 @@ export async function verifyReleasePackage(
   }
 
   const publicJson = new Map<string, unknown>();
-  for (const file of files.filter((candidate) => candidate.endsWith(".json"))) {
+  for (const file of files.filter((candidate) => candidate.toLocaleLowerCase().endsWith(".json"))) {
     try {
       const value = JSON.parse(await readFile(file, "utf8"));
       publicJson.set(file, value);
