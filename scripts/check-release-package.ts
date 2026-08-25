@@ -67,11 +67,16 @@ function extractSrcsetUrls(source: string): string[] {
   const urls: string[] = [];
   let cursor = 0;
   while (cursor < source.length) {
-    while (cursor < source.length && /[\s,]/u.test(source[cursor])) cursor += 1;
+    while (
+      cursor < source.length &&
+      (isAsciiWhitespace(source[cursor]) || source[cursor] === ",")
+    ) {
+      cursor += 1;
+    }
     if (cursor >= source.length) break;
 
     const start = cursor;
-    while (cursor < source.length && !/\s/u.test(source[cursor])) cursor += 1;
+    while (cursor < source.length && !isAsciiWhitespace(source[cursor])) cursor += 1;
     const rawUrl = source.slice(start, cursor);
     const endedAtCandidateSeparator = /,+$/u.test(rawUrl);
     const url = rawUrl.replace(/,+$/u, "");
@@ -86,7 +91,21 @@ function extractSrcsetUrls(source: string): string[] {
 
 type CssEscape = { decoded: string; end: number; validInIdentifier: boolean };
 
-const isCssWhitespace = (character: string): boolean => /[ \n\r\t\f]/u.test(character);
+/**
+ * 判断 HTML srcset 与 CSS Syntax 共同使用的 ASCII whitespace。
+ *
+ * 为什么存在：JavaScript `\s` 还包含 NBSP 等可属于 URL/ident 的字符。所有资源 tokenizer 通过本函数共享五个标准空白字符；纯判断不抛错。排查时检查字符 code point。不能改回 `\s` 或原生 trim，否则校验路径会与浏览器请求不一致。
+ */
+const isAsciiWhitespace = (character: string): boolean => /[ \n\r\t\f]/u.test(character);
+
+/** 只移除语法定义的 ASCII whitespace，保留 NBSP 等 URL 字符。 */
+function trimAsciiWhitespace(source: string): string {
+  let start = 0;
+  let end = source.length;
+  while (start < end && isAsciiWhitespace(source[start])) start += 1;
+  while (end > start && isAsciiWhitespace(source[end - 1])) end -= 1;
+  return source.slice(start, end);
+}
 
 /**
  * 从反斜杠位置消费一个 CSS escape，并返回统一边界与解码值。
@@ -106,7 +125,7 @@ function consumeCssEscape(source: string, start: number): CssEscape {
   }
   if (cursor > hexStart) {
     const codePoint = Number.parseInt(source.slice(hexStart, cursor), 16);
-    if (isCssWhitespace(source[cursor] ?? "")) {
+    if (isAsciiWhitespace(source[cursor] ?? "")) {
       if (source[cursor] === "\r" && source[cursor + 1] === "\n") cursor += 1;
       cursor += 1;
     }
@@ -159,7 +178,7 @@ function extractUrlsFromCssValue(source: string): string[] {
     if (node.type !== "function") return;
     const functionName = decodeCssEscapes(node.value).toLocaleLowerCase();
     if (functionName === "url") {
-      const serialized = valueParser.stringify(node.nodes).trim();
+      const serialized = trimAsciiWhitespace(valueParser.stringify(node.nodes));
       const unquoted =
         (serialized.startsWith('"') && serialized.endsWith('"')) ||
         (serialized.startsWith("'") && serialized.endsWith("'"))
@@ -219,7 +238,7 @@ function resolveImportParameters(serializedRule: string): string | undefined {
   }
   if (decodedName.toLocaleLowerCase() !== "import") return undefined;
   while (cursor < serializedRule.length) {
-    if (isCssWhitespace(serializedRule[cursor])) {
+    if (isAsciiWhitespace(serializedRule[cursor])) {
       cursor += 1;
       continue;
     }

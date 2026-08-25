@@ -102,16 +102,18 @@ describe("M5 发布包校验", () => {
     await writeFile(resolve(directory, "&#x2e;&#x2e;/outside.js"), "void 0;\n");
     await writeFile(resolve(directory, "&period;&period;/outside.js"), "void 0;\n");
     await writeFile(resolve(directory, "base-target.js"), "void 0;\n");
+    await writeFile(resolve(directory, "srcset-nbsp"), "decoy\n");
+    await writeFile(resolve(directory, "css-nbsp"), "decoy\n");
     const escapedCssDecoy = resolve(directory, "safe", "\\2e\\2e ", "\\2e\\2e ", "outside.png");
     await mkdir(resolve(escapedCssDecoy, ".."), { recursive: true });
     await writeFile(escapedCssDecoy, "decoy\n");
     await writeFile(
       resolve(directory, "index.html"),
-      '<base href="./sub/"><script src=./missing-extra.js></script><script src="https:/missing-root.js"></script><script src="./%2e%2e/outside.js"></script><script src="./&#x2e&#x2e/outside.js"></script><script src="./&period;&period;/outside.js"></script><script src="./base-target.js"></script><link href="./style.css" imagesrcset="./missing-link-srcset.png 1x"><img src="./assets/escape.txt" srcset="data:image/svg+xml,%3Csvg%3E 1x, ./missing-srcset.png 2x"><div style="background:url(./missing-inline.png)"></div><style>.x{background:url(./missing-style-block.png)}</style>',
+      '<base href="./sub/"><script src=./missing-extra.js></script><script src="https:/missing-root.js"></script><script src="./%2e%2e/outside.js"></script><script src="./&#x2e&#x2e/outside.js"></script><script src="./&period;&period;/outside.js"></script><script src="./base-target.js"></script><link href="./style.css" imagesrcset="./missing-link-srcset.png 1x"><img src="./assets/escape.txt" srcset="data:image/svg+xml,%3Csvg%3E 1x, ./missing-srcset.png 2x"><img srcset="./srcset-nbsp\u00a0file.png 1x"><div style="background:url(./missing-inline.png)"></div><style>.x{background:url(./missing-style-block.png)}</style>',
     );
     await writeFile(
       resolve(directory, "style.css"),
-      '@import "./missing-import.css";@import "./missing-supported-import.css" supports(background-image: url("./import-condition-decoy.png"));@im\\70 ort "./missing-escaped-import.css";@im\\70 ort/**/"./missing-comment-import.css";.x{background:url(./safe/\\2e\\2e /\\2e\\2e /outside.png)}.y{background:u\\72l("./missing-escaped-function.png")}.z{background-image:image-set("./missing-1x.png" 1x)}',
+      '@import "./missing-import.css";@import "./missing-supported-import.css" supports(background-image: url("./import-condition-decoy.png"));@im\\70 ort "./missing-escaped-import.css";@im\\70 ort/**/"./missing-comment-import.css";.x{background:url(./safe/\\2e\\2e /\\2e\\2e /outside.png)}.y{background:u\\72l("./missing-escaped-function.png")}.z{background-image:image-set("./missing-1x.png" 1x)}.n{background:url(./css-nbsp\u00a0)}',
     );
     await writeFile(resolve(directory, "import-condition-decoy.png"), "decoy\n");
     await symlink("/etc/hosts", resolve(directory, "assets/escape.txt"));
@@ -141,6 +143,8 @@ describe("M5 发布包校验", () => {
           expect.stringContaining("missing-supported-import.css"),
           expect.stringContaining("missing-escaped-import.css"),
           expect.stringContaining("missing-comment-import.css"),
+          expect.stringContaining("srcset-nbsp\u00a0file.png"),
+          expect.stringContaining("css-nbsp\u00a0"),
           expect.stringContaining("发布包不得包含符号链接"),
           expect.stringContaining("静态引用真实路径越出发布目录"),
         ]),
