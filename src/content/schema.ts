@@ -122,8 +122,8 @@ export type ReferenceLink = z.infer<typeof referenceLinkSchema>;
  *
  * 为什么存在：标签没有独立管理后台，写入时必须消除大小写、全半角和空白差异，否则同一个概念会枚举成多个标签。
  * 数据如何流动：每个原始标签先做 NFKC、去首尾空白、转小写，再把连续空白转成连字符，最后按首次出现顺序去重。
- * 何时失败：标签为空、含控制字符或规范化后只剩连字符时抛出 `VALIDATION_FAILED`。
- * 如何排查：查看错误 details 中的原始标签，确认是否存在不可见字符或只输入了标点。
+ * 何时失败：标签为空、含控制/格式/孤立代理字符或规范化后只剩连字符时抛出 `VALIDATION_FAILED`。
+ * 如何排查：查看错误 details 中的原始标签，确认是否存在双向控制、零宽字符、损坏 Unicode 或只输入了标点。
  * 什么不能改：不能在这里维护固定标签清单；产品已经确定标签必须从内容动态枚举。
  */
 export function normalizeTags(tags: string[]): string[] {
@@ -133,7 +133,7 @@ export function normalizeTags(tags: string[]): string[] {
 
   for (let index = 0; index < normalized.length; index += 1) {
     const tag = normalized[index];
-    if (!tag || /^[-]+$/u.test(tag) || /[\u0000-\u001f\u007f]/u.test(tag)) {
+    if (!tag || /^[-]+$/u.test(tag) || /[\p{Cc}\p{Cf}\p{Cs}]/u.test(tag)) {
       throw new AppError("VALIDATION_FAILED", "标签规范化失败", { tag: tags[index] });
     }
   }

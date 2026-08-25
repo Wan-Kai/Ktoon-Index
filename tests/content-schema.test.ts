@@ -69,6 +69,28 @@ describe("M1 Entry Schema", () => {
     );
   });
 
+  it("拒绝双向控制、零宽和孤立代理项等异常 Unicode 标签", () => {
+    for (const tag of ["agent\u202e", "zero\u200bwidth", "broken\ud800"]) {
+      expect(() => createEntry({ ...createInput, tags: [tag] })).toThrowError(
+        expect.objectContaining({ code: "VALIDATION_FAILED" }),
+      );
+    }
+  });
+
+  it("序列化会安全引用 Frontmatter 文本，解析会拒绝未知注入字段", () => {
+    const injectedTitle = "Safe title\nstatus: recycled";
+    const entry = createEntry(
+      { ...createInput, title: injectedTitle },
+      new Date("2026-08-25T08:00:00.000Z"),
+    );
+    const markdown = serializeEntry(entry);
+
+    expect(parseEntry(markdown)).toMatchObject({ title: injectedTitle, status: "published" });
+    expect(() =>
+      parseEntry(markdown.replace("version: 1", "version: 1\nmaintainer: attacker")),
+    ).toThrowError(expect.objectContaining({ code: "VALIDATION_FAILED" }));
+  });
+
   it("拒绝非 HTTPS 链接与超出白名单的 Markdown", () => {
     expect(() => createEntry({ ...createInput, category: "unknown" })).toThrowError(
       expect.objectContaining({ code: "VALIDATION_FAILED" }),

@@ -40,6 +40,28 @@ describe("M1 GitHub adapter", () => {
     });
   });
 
+  it("doctor 稳定区分未认证与无写权限", () => {
+    const unauthenticated = new GitHubContentClient(() => ({
+      status: 1,
+      stdout: "",
+      stderr: "not logged in",
+    }));
+    const forbidden = new GitHubContentClient((args) =>
+      args[0] === "auth"
+        ? { status: 0, stdout: "", stderr: "" }
+        : {
+            status: 0,
+            stdout: JSON.stringify({ default_branch: "main", permissions: { push: false } }),
+            stderr: "",
+          },
+    );
+
+    expect(() => unauthenticated.doctor()).toThrowError(
+      expect.objectContaining({ code: "AUTH_REQUIRED" }),
+    );
+    expect(() => forbidden.doctor()).toThrowError(expect.objectContaining({ code: "FORBIDDEN" }));
+  });
+
   it("get 解码 GitHub 内容并返回 version 与文件 SHA", () => {
     const source = serializeEntry(entry);
     const runner: GhRunner = () => ({
@@ -57,6 +79,26 @@ describe("M1 GitHub adapter", () => {
       sha: "file-sha",
       path: "content/entries/mcp-inspector.md",
     });
+  });
+
+  it("get 稳定区分不存在与 GitHub API 异常", () => {
+    const missing = new GitHubContentClient(() => ({
+      status: 1,
+      stdout: "",
+      stderr: "HTTP 404: Not Found",
+    }));
+    const unavailable = new GitHubContentClient(() => ({
+      status: 1,
+      stdout: "",
+      stderr: "HTTP 500: Internal Server Error",
+    }));
+
+    expect(() => missing.getEntry("missing-entry")).toThrowError(
+      expect.objectContaining({ code: "NOT_FOUND" }),
+    );
+    expect(() => unavailable.getEntry("missing-entry")).toThrowError(
+      expect.objectContaining({ code: "GITHUB_ERROR" }),
+    );
   });
 
   it("create 先检查远端 ID，再用单个 PUT 写入 main 与 commit trailers", () => {

@@ -1,4 +1,4 @@
-export { AppError, type ErrorCode } from "./errors.ts";
+export { ERROR_CODES, AppError, type ErrorCode } from "./errors.ts";
 export { parseEntry, renderRestrictedMarkdown, serializeEntry } from "./markdown.ts";
 export {
   applyEntryUpdate,

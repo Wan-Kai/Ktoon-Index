@@ -186,6 +186,26 @@ describe("M1 CLI 输出契约", () => {
     }
   });
 
+  it("损坏写入 JSON 在任何 GitHub 调用前失败", async () => {
+    const directory = mkdtempSync(join(tmpdir(), "ktoon-m7-json-"));
+    const input = join(directory, "broken.json");
+    writeFileSync(input, '{"title":');
+    const calls: string[][] = [];
+    const client = new GitHubContentClient((args) => {
+      calls.push(args);
+      return { status: 0, stdout: "{}", stderr: "" };
+    });
+
+    try {
+      await expect(
+        createProgram(client).parseAsync(["node", "ai-index", "entry", "create", "--input", input]),
+      ).rejects.toMatchObject({ code: "VALIDATION_FAILED" });
+      expect(calls).toEqual([]);
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
   it("未知输出格式在 GitHub 请求前返回 JSON 校验错误", () => {
     const result = spawnSync("./bin/ai-index.js", ["entry", "list", "--format", "yaml"], {
       cwd: new URL("..", import.meta.url),

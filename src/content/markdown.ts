@@ -26,6 +26,32 @@ const allowedTokenTypes = new Set([
   "link_open",
   "link_close",
 ]);
+const frontmatterKeys = new Set([
+  "id",
+  "title",
+  "summary",
+  "category",
+  "tags",
+  "rating",
+  "version",
+  "status",
+  "added_at",
+  "updated_at",
+  "source",
+  "references",
+]);
+
+/**
+ * 拒绝事实源 Frontmatter 中未声明的字段。
+ *
+ * 为什么存在：gray-matter 会保留额外 YAML 键，而后续字段投影若静默丢弃它们，会让手工注入或拼写错误看似发布成功。解析后的键集合进入白名单比较；命中未知键立即返回 VALIDATION_FAILED，不修改输入。排查时删除 details.unknown 中的字段或改为正式 Schema 名称。不能在 candidate 投影后再检查，否则未知信息已经丢失。
+ */
+function assertKnownFrontmatter(data: Record<string, unknown>): void {
+  const unknown = Object.keys(data).filter((key) => !frontmatterKeys.has(key));
+  if (unknown.length > 0) {
+    throw new AppError("VALIDATION_FAILED", "条目 Frontmatter 包含未知字段", { unknown });
+  }
+}
 
 /**
  * 对 Markdown token 与原始语法中的 URL 执行同一安全边界。
@@ -127,6 +153,7 @@ export function serializeEntry(entry: Entry): string {
 export function parseEntry(source: string): Entry {
   try {
     const parsed = matter(source);
+    assertKnownFrontmatter(parsed.data);
     const candidate = {
       id: parsed.data.id,
       title: parsed.data.title,

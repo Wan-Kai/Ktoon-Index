@@ -1,12 +1,15 @@
-export type ErrorCode =
-  | "VALIDATION_FAILED"
-  | "NOT_FOUND"
-  | "ID_CONFLICT"
-  | "VERSION_CONFLICT"
-  | "AUTH_REQUIRED"
-  | "FORBIDDEN"
-  | "GITHUB_ERROR"
-  | "BUILD_FAILED";
+export const ERROR_CODES = [
+  "VALIDATION_FAILED",
+  "NOT_FOUND",
+  "ID_CONFLICT",
+  "VERSION_CONFLICT",
+  "AUTH_REQUIRED",
+  "FORBIDDEN",
+  "GITHUB_ERROR",
+  "BUILD_FAILED",
+] as const;
+
+export type ErrorCode = (typeof ERROR_CODES)[number];
 
 export class AppError extends Error {
   readonly code: ErrorCode;

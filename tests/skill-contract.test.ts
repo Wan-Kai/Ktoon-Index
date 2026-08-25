@@ -1,16 +1,26 @@
 import { spawnSync } from "node:child_process";
-import { chmodSync, copyFileSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { chmodSync, copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
+import matter from "gray-matter";
 
 const projectRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const skillRoot = resolve(projectRoot, "skills/ai-index");
 const runner = resolve(skillRoot, "scripts/run-ai-index.sh");
 
 describe("M6 Agent Skill 契约", () => {
+  it("提供可自动触发且无脚手架残留的 Skill 元数据", () => {
+    const parsed = matter(readFileSync(resolve(skillRoot, "SKILL.md"), "utf8"));
+
+    expect(parsed.data).toMatchObject({ name: "ai-index" });
+    expect(parsed.data.description).toEqual(expect.any(String));
+    expect(parsed.data.description.length).toBeGreaterThan(40);
+    expect(parsed.content).not.toContain("TODO");
+  });
+
   it("从仓库外目录稳定定位同一 CLI", () => {
     const syntax = spawnSync("bash", ["-n", runner], { encoding: "utf8" });
     const result = spawnSync(runner, ["--version"], { cwd: tmpdir(), encoding: "utf8" });
@@ -18,7 +28,7 @@ describe("M6 Agent Skill 契约", () => {
     expect(syntax.status).toBe(0);
     expect(result.status).toBe(0);
     expect(result.stderr).toBe("");
-    expect(result.stdout.trim()).toBe("0.6.0");
+    expect(result.stdout.trim()).toBe("0.7.0");
   });
 
   it("通过 runner 暴露现有单条目 CRUD 命令", () => {
