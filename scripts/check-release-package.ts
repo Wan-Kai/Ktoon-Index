@@ -153,6 +153,23 @@ function extractImportReference(source: string): string | undefined {
 }
 
 /**
+ * 还原 PostCSS 可能拆开的 @import 规则名并返回参数。
+ *
+ * 为什么存在：CSS at-keyword 的 ident 允许转义，而 PostCSS 会把 `@im\\70 ort` 拆成 name=im 与 params=\\70 ort。正常规则直接比较解码后的 name；仅在 name 与 params 无分隔时拼接、解码并确认 import 后紧跟参数起始符。无法确认时返回 undefined，不把其他 at-rule 当导入。排查时查看 rule.raws.afterName。不能只用 walkAtRules 正则，否则浏览器可识别的转义规则会漏检。
+ */
+function resolveImportParameters(
+  name: string,
+  params: string,
+  afterName: string,
+): string | undefined {
+  if (decodeCssEscapes(name).toLocaleLowerCase() === "import") return params;
+  if (afterName !== "") return undefined;
+  const decoded = decodeCssEscapes(`${name}${params}`);
+  const match = /^import(?=$|\s|["']|url\()/iu.exec(decoded);
+  return match ? decoded.slice(match[0].length).trimStart() : undefined;
+}
+
+/**
  * 解析完整 stylesheet 或 style 属性声明列表中的全部资源引用。
  *
  * 为什么存在：外部 CSS、style 节点与 style 属性必须共享同一 URL 规则。调用方显式传入模式；declarations 会包进临时规则，stylesheet 原样交给 PostCSS。语法错误抛给上层聚合为 BUILD_FAILED；排查时定位对应源码。不能把模式退回 boolean，也不能在含 url() 的 @import 中把媒体条件当文件。
@@ -163,8 +180,14 @@ function extractCssReferences(source: string, mode: "stylesheet" | "declarations
   root.walkDecls((declaration) => {
     references.push(...extractUrlsFromCssValue(declaration.value));
   });
-  root.walkAtRules(/^import$/iu, (rule) => {
-    const reference = extractImportReference(rule.params);
+  root.walkAtRules((rule) => {
+    const importParameters = resolveImportParameters(
+      rule.name,
+      rule.params,
+      rule.raws.afterName ?? "",
+    );
+    if (importParameters === undefined) return;
+    const reference = extractImportReference(importParameters);
     if (reference) references.push(reference);
   });
   return references;
