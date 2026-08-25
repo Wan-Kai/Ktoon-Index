@@ -35,8 +35,12 @@ M7 完成内容维护第一阶段的安全硬化、真实远端验证、页面�
 - 切换英文后只改变界面文案，条目标题保持不变；
 - 浏览器控制台没有 warning 或 error。
 
+Pages 部署后再次使用 Chrome 抽检 `https://wan-kai.github.io/Ktoon-Index/`：线上首页包含五个分类和 15 条预览，MCP Inspector 详情可打开；两页均无横向溢出，控制台无 warning 或 error。
+
 ## 切换与恢复
 
 切换前创建并推送 annotated tag `static-v1-before-m7`。tag 对象 `5eba11b0f8ea2391590be5a5c0eca45db5a1eff3` 指向已通过 M6 门禁的 commit `322fd05b73b3715ac7dc8fb4df897aea3e0f2db3`。
 
-恢复坚持普通 commit，不移动 tag、不 force-push，完整命令和失败处理见维护者指南。M7 交付 commit 发布成功后，会在一次性分支从该 tag 恢复完整工作树、执行 workflow，并在验证后删除分支；演练 run 记录将在本文件补充。
+M7 主提交 `6f18d8779293b5083a17b3006ed902e15f31e25c` 的 [Verify and deploy run 32865516694](https://github.com/Wan-Kai/Ktoon-Index/actions/runs/32865516694) 已完成 build 与 Pages deploy。
+
+恢复坚持普通 commit，不移动 tag、不 force-push，完整命令和失败处理见维护者指南。实际演练在一次性分支 `m7-restore-drill-20260825` 将完整工作树恢复到 tag，产生普通 commit `3940099f89752372d349b7541163fddbc292b0d2`，并手动触发 [workflow run 32865699554](https://github.com/Wan-Kai/Ktoon-Index/actions/runs/32865699554)。build 全部通过，非 `main` 分支的 deploy 按设计跳过；验证后远端和本地临时分支均已删除，生产 `main` 未改变。
