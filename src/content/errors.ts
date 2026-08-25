@@ -2,6 +2,7 @@ export type ErrorCode =
   | "VALIDATION_FAILED"
   | "NOT_FOUND"
   | "ID_CONFLICT"
+  | "VERSION_CONFLICT"
   | "AUTH_REQUIRED"
   | "FORBIDDEN"
   | "GITHUB_ERROR"

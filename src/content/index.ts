@@ -1,5 +1,13 @@
 export { AppError, type ErrorCode } from "./errors.ts";
 export { parseEntry, renderRestrictedMarkdown, serializeEntry } from "./markdown.ts";
+export {
+  applyEntryUpdate,
+  parseMutationGuard,
+  parseUpdateEntryRequest,
+  transitionEntryStatus,
+  type MutationGuard,
+  type UpdateEntryRequest,
+} from "./mutations.ts";
 export { CATEGORY_META, projectIndexEntry, projectPublicEntry } from "./public.ts";
 export {
   filterEntries,

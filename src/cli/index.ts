@@ -9,18 +9,29 @@ import {
   CATEGORY_IDS,
   RATINGS,
   AppError,
+  applyEntryUpdate,
   createEntry,
+  entryIdSchema,
   filterEntries,
   listTags,
+  parseMutationGuard,
+  parseUpdateEntryRequest,
   searchEntries,
   serializeEntry,
+  transitionEntryStatus,
   type CategoryId,
   type Entry,
   type EntryQueryFilters,
   type EntrySort,
   type Rating,
 } from "../content/index.ts";
-import { GitHubContentClient, GitHubEntryReader } from "../github/index.ts";
+import {
+  GitHubContentClient,
+  GitHubEntryReader,
+  assertRequestId,
+  type GitHubWriteResult,
+  type WriteOperation,
+} from "../github/index.ts";
 import { runDoctor } from "./doctor.ts";
 import { parseOutputFormat, writeOutput, type OutputFormat, type TableRow } from "./output.ts";
 
@@ -35,6 +46,8 @@ type ReadOptions = {
   sort?: string;
   format?: string;
 };
+
+type WriteOptions = { input: string; requestId?: string };
 
 /**
  * 给所有条目读取命令挂载同一组筛选和输出参数。
@@ -141,13 +154,68 @@ function readJsonInput(path: string): unknown {
 }
 
 /**
- * 建立 M2 CLI 命令树。
+ * 为一次写操作生成或校验可重试的 request ID。
+ *
+ * 为什么存在：默认调用应零配置获得 UUID；遇到超时的 Agent 又必须能够显式复用原 ID，让 GitHub 历史返回原 commit 而不是重复写入。
+ * 数据如何流动：缺失值由 randomUUID 生成，显式值原样进入统一 UUID 校验，随后传给 commit trailer 与 CLI JSON 输出。
+ * 何时失败：显式值不是标准 UUID 时在 doctor 和任何 GitHub 请求前返回 VALIDATION_FAILED。
+ * 如何排查：省略 `--request-id`，或复用上一次调用保存的 request_id；不能临时修改旧 ID 的字符。
+ * 什么不能改：不能用时间戳、随机短串或静默 trim；request ID 是全仓库幂等键和审计边界。
+ */
+function resolveRequestId(value: string | undefined): string {
+  const requestId = value ?? randomUUID();
+  assertRequestId(requestId);
+  return requestId;
+}
+
+/**
+ * 在 doctor 前把路径参数收敛为不可变 Entry ID。
+ *
+ * 为什么存在：get/update/delete/restore 都把 ID 放在 CLI 路径参数中，非法值不应先触发认证或提交历史请求。
+ * 数据如何流动：原始参数复用 entryIdSchema；成功后后续层仍会防御性复验，失败统一转换为 VALIDATION_FAILED。
+ * 何时失败：大写、空格、目录穿越、连续/首尾连字符或非 ASCII ID 在零网络调用时失败。
+ * 如何排查：从 entry get/list 复制现有 ID，或使用小写字母、数字和单个连字符。
+ * 什么不能改：不能在 CLI 单独维护另一条 ID 正则，也不能自动 slugify 修改已有条目的路径参数。
+ */
+function assertEntryId(id: string): void {
+  if (!entryIdSchema.safeParse(id).success) {
+    throw new AppError("VALIDATION_FAILED", "ID 格式不合法", { id });
+  }
+}
+
+/**
+ * 把四种写操作收敛为同一份机器可读成功回执。
+ *
+ * 为什么存在：Agent 恢复超时需要统一读取 request/commit/blob SHA 与 idempotent，不能为 create/update/status 分别猜字段。
+ * 数据如何流动：GitHubWriteResult 只做 snake_case 投影后一次写到 stdout，领域 Entry 原样保留供下一次 expected_version 使用。
+ * 何时失败：本函数不执行网络与校验；若 result 缺字段，GitHub client 应在返回前失败而不是输出部分回执。
+ * 如何排查：核对 commit_sha、sha、request_id 和 entry.version；idempotent=true 表示返回历史结果且没有新 commit。
+ * 什么不能改：不能省略 SHA/version 或把幂等命中伪装成新写入，也不能在成功 JSON 中泄漏认证信息。
+ */
+function writeMutationResult(result: GitHubWriteResult): void {
+  writeOutput(
+    {
+      ok: true,
+      command: `entry ${result.operation}`,
+      request_id: result.requestId,
+      commit_sha: result.commitSha,
+      sha: result.sha,
+      path: result.path,
+      idempotent: result.idempotent,
+      entry: result.entry,
+    },
+    "json",
+  );
+}
+
+/**
+ * 建立 M3 CLI 命令树。
  *
  * 为什么存在：命令解析与执行要可在测试中注入 GitHub adapter，避免单元测试真实修改远端。
- * 数据如何流动：doctor 检查运行环境；create/get 复用 M1；list/search/tag list 通过 GitHubEntryReader 进入统一查询模块和输出层。
+ * 数据如何流动：doctor 与只读命令复用 M2；create/update/delete/restore 先在本地解析 JSON 和 request ID，再进入 GitHub 单文件 CAS/幂等写路径。
  * 何时失败：领域或 GitHub 层抛出 AppError，由最外层统一输出机器可读错误和非零退出码。
  * 如何排查：先执行 doctor，再根据 error.code 修正输入、认证或远端冲突。
- * 什么不能改：不能让 create/get 直接读写当前工作区，也不能在 commander action 内复制 Schema 规则。
+ * 什么不能改：不能让任一命令直接读写当前工作区，不能在 commander action 内复制 Schema/并发规则，也不能加入批量或永久删除入口。
  */
 export function createProgram(client = new GitHubContentClient()): Command {
   const program = new Command();
@@ -181,23 +249,14 @@ export function createProgram(client = new GitHubContentClient()): Command {
     .command("create")
     .description("从 JSON 创建并直接提交一个条目")
     .requiredOption("--input <path>", "JSON 文件路径；使用 - 从 stdin 读取")
-    .action((options: { input: string }) => {
+    .option("--request-id <uuid>", "重试时复用的 request ID")
+    .action((options: WriteOptions) => {
       const model = createEntry(readJsonInput(options.input));
       const markdown = serializeEntry(model);
+      const requestId = resolveRequestId(options.requestId);
       client.doctor();
-      const requestId = randomUUID();
       const result = client.createEntry(model, markdown, requestId);
-      writeOutput(
-        {
-          ok: true,
-          command: "entry create",
-          request_id: requestId,
-          commit_sha: result.commitSha,
-          path: result.path,
-          entry: model,
-        },
-        "json",
-      );
+      writeMutationResult(result);
     });
 
   entry
@@ -205,6 +264,7 @@ export function createProgram(client = new GitHubContentClient()): Command {
     .description("从固定 GitHub 仓库读取一个条目")
     .argument("<id>", "不可变条目 ID")
     .action((id: string) => {
+      assertEntryId(id);
       client.doctor();
       const result = client.getEntry(id);
       writeOutput(
@@ -218,6 +278,57 @@ export function createProgram(client = new GitHubContentClient()): Command {
         "json",
       );
     });
+
+  /**
+   * 为 update/delete/restore 建立共享的 JSON、并发与幂等命令外壳。
+   *
+   * 为什么存在：三种 mutation 只有领域变换不同，输入读取、request ID、doctor、CAS 与输出若复制会逐渐产生安全差异。
+   * 数据如何流动：id/options 先本地解析；update 读取 patch，状态操作读取 guard；随后统一调用 client.mutateEntry，并注入对应纯领域函数。
+   * 何时失败：JSON/request 非法在网络前失败；远端版本/SHA、状态或写入冲突由领域与 client 返回稳定 AppError。
+   * 如何排查：先 get 最新 entry.version/sha，再检查输入文件与复用的 request ID；不要绕过 helper 单独挂 action。
+   * 什么不能改：不能让 delete 删除文件、让 restore 重建新 ID，或为任何命令省略 expected_version/expected_sha。
+   */
+  const addMutationCommand = (
+    operation: Exclude<WriteOperation, "create">,
+    description: string,
+  ): void => {
+    entry
+      .command(operation)
+      .description(description)
+      .argument("<id>", "不可变条目 ID")
+      .requiredOption("--input <path>", "JSON 文件路径；使用 - 从 stdin 读取")
+      .option("--request-id <uuid>", "重试时复用的 request ID")
+      .action((id: string, options: WriteOptions) => {
+        assertEntryId(id);
+        const raw = readJsonInput(options.input);
+        const requestId = resolveRequestId(options.requestId);
+        const request =
+          operation === "update" ? parseUpdateEntryRequest(raw) : parseMutationGuard(raw);
+        client.doctor();
+        const result = client.mutateEntry(
+          {
+            id,
+            expectedVersion: request.expected_version,
+            expectedSha: request.expected_sha,
+            requestId,
+            operation,
+          },
+          (current) =>
+            operation === "update"
+              ? applyEntryUpdate(current, request as ReturnType<typeof parseUpdateEntryRequest>)
+              : transitionEntryStatus(
+                  current,
+                  request,
+                  operation === "delete" ? "recycled" : "published",
+                ),
+        );
+        writeMutationResult(result);
+      });
+  };
+
+  addMutationCommand("update", "用 Merge Patch 修改一个条目");
+  addMutationCommand("delete", "原位回收一个条目");
+  addMutationCommand("restore", "恢复一个已回收条目");
 
   addReadOptions(entry.command("list").description("列出远端 Markdown 条目")).action(
     (options: ReadOptions) => {

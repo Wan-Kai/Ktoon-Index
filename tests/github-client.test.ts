@@ -63,25 +63,36 @@ describe("M1 GitHub adapter", () => {
     const calls: Array<{ args: string[]; input?: string }> = [];
     const runner: GhRunner = (args, input) => {
       calls.push({ args, input });
+      if (args.some((argument) => argument.endsWith("/commits"))) {
+        return { status: 0, stdout: "[[]]", stderr: "" };
+      }
       if (args.includes("GET")) {
         return { status: 1, stdout: "", stderr: "HTTP 404: Not Found" };
       }
-      return { status: 0, stdout: JSON.stringify({ commit: { sha: "commit-sha" } }), stderr: "" };
+      return {
+        status: 0,
+        stdout: JSON.stringify({
+          content: { sha: "a".repeat(40) },
+          commit: { sha: "b".repeat(40) },
+        }),
+        stderr: "",
+      };
     };
 
     const result = new GitHubContentClient(runner).createEntry(
       entry,
       serializeEntry(entry),
-      "request-123",
+      "123e4567-e89b-42d3-a456-426614174000",
     );
-    const payload = JSON.parse(calls[1].input ?? "{}") as { message: string; branch: string };
+    const put = calls.find((call) => call.args.includes("PUT"));
+    const payload = JSON.parse(put?.input ?? "{}") as { message: string; branch: string };
 
-    expect(result.commitSha).toBe("commit-sha");
-    expect(calls[0].args).toContain("GET");
-    expect(calls[1].args).toContain("PUT");
+    expect(result.commitSha).toBe("b".repeat(40));
+    expect(result.sha).toBe("a".repeat(40));
+    expect(put?.args).toContain("PUT");
     expect(payload.branch).toBe("main");
     expect(payload.message).toContain("Content-Version: 1");
-    expect(payload.message).toContain("Request-ID: request-123");
+    expect(payload.message).toContain("Request-ID: 123e4567-e89b-42d3-a456-426614174000");
   });
 
   it("GitHub 与内存 reader 向查询层返回相同领域结果", () => {

@@ -1,4 +1,7 @@
 import { spawnSync } from "node:child_process";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
@@ -83,6 +86,66 @@ describe("M1 CLI 输出契约", () => {
       ]),
     ).rejects.toMatchObject({ code: "VALIDATION_FAILED" });
     expect(calls).toEqual([]);
+  });
+
+  it("非法 mutation JSON 与 request ID 在任何 GitHub 调用前失败", async () => {
+    const directory = mkdtempSync(join(tmpdir(), "ktoon-m3-cli-"));
+    const input = join(directory, "update.json");
+    writeFileSync(input, JSON.stringify({ expected_version: 1, patch: { title: "Changed" } }));
+    const calls: string[][] = [];
+    const client = new GitHubContentClient((args) => {
+      calls.push(args);
+      return { status: 0, stdout: "{}", stderr: "" };
+    });
+
+    try {
+      await expect(
+        createProgram(client).parseAsync([
+          "node",
+          "ai-index",
+          "entry",
+          "update",
+          "mcp-inspector",
+          "--input",
+          input,
+        ]),
+      ).rejects.toMatchObject({ code: "VALIDATION_FAILED" });
+      writeFileSync(
+        input,
+        JSON.stringify({
+          expected_version: 1,
+          expected_sha: "a".repeat(40),
+          patch: { title: "Changed" },
+        }),
+      );
+      await expect(
+        createProgram(client).parseAsync([
+          "node",
+          "ai-index",
+          "entry",
+          "update",
+          "../bad-id",
+          "--input",
+          input,
+        ]),
+      ).rejects.toMatchObject({ code: "VALIDATION_FAILED" });
+      await expect(
+        createProgram(client).parseAsync([
+          "node",
+          "ai-index",
+          "entry",
+          "update",
+          "mcp-inspector",
+          "--input",
+          input,
+          "--request-id",
+          "not-a-uuid",
+        ]),
+      ).rejects.toMatchObject({ code: "VALIDATION_FAILED" });
+      expect(calls).toEqual([]);
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
   });
 
   it("未知输出格式在 GitHub 请求前返回 JSON 校验错误", () => {

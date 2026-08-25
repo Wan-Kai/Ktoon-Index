@@ -76,7 +76,7 @@ function checkContentBuild(): { validated: true; entries: number; details: numbe
 }
 
 /**
- * 汇总 M2 CLI 运行前的本机、GitHub 与内容构建检查。
+ * 汇总 M3 CLI 运行前的本机、GitHub 与内容构建检查。
  *
  * 为什么存在：维护者需要一个命令区分运行时、认证权限和事实源构建问题，而不是等到具体查询或写入中途失败。
  * 数据如何流动：依次检查 Node、固定 GitHub 仓库和只读内容构建，全部成功后返回单个 JSON checks 对象。

@@ -4,6 +4,7 @@ import {
   AppError,
   entryIdSchema,
   parseEntry,
+  serializeEntry,
   type Entry,
   type EntryReader,
 } from "../content/index.ts";
@@ -19,6 +20,31 @@ export type RemoteEntry = {
   entry: Entry;
   sha: string;
   path: string;
+};
+
+export type WriteOperation = "create" | "update" | "delete" | "restore";
+
+export type GitHubWriteResult = RemoteEntry & {
+  commitSha: string;
+  requestId: string;
+  operation: WriteOperation;
+  idempotent: boolean;
+};
+
+type RequestCommit = {
+  sha: string;
+  requestId: string;
+  operation: WriteOperation;
+  entryId: string;
+  version: number;
+};
+
+type MutationOptions = {
+  id: string;
+  expectedVersion: number;
+  expectedSha: string;
+  requestId: string;
+  operation: Exclude<WriteOperation, "create">;
 };
 
 /**
@@ -54,6 +80,84 @@ function entryPath(id: string): string {
 
 function isNotFound(result: GhResult): boolean {
   return result.status !== 0 && /(?:HTTP 404|Not Found)/iu.test(result.stderr);
+}
+
+/**
+ * 在任何历史查询或写请求前校验幂等 request ID。
+ *
+ * 为什么存在：request ID 会进入 commit trailer 与历史匹配，必须是无换行、不可伪造其他 trailer 的稳定 UUID。
+ * 数据如何流动：CLI 生成或接收字符串后调用本函数；GitHub client 在每次内部查找前再次防御性调用。
+ * 何时失败：非标准 UUID、控制字符、空值或任意附加文本返回 VALIDATION_FAILED，且不访问网络。
+ * 如何排查：省略参数让 CLI 自动生成，或使用标准 UUID v1-v8；不要复用其他操作的 ID。
+ * 什么不能改：不能接受任意字符串或只做 trim，否则 commit message 注入会破坏幂等与审计边界。
+ */
+export function assertRequestId(requestId: string): void {
+  if (
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u.test(requestId)
+  ) {
+    throw new AppError("VALIDATION_FAILED", "request ID 必须是 UUID", { request_id: requestId });
+  }
+}
+
+/**
+ * 把 GitHub stdout 解析为预期 JSON，并收敛损坏响应的错误契约。
+ *
+ * 为什么存在：gh 成功退出不代表响应一定可解析；SyntaxError 若直接逃逸会绕过稳定 GITHUB_ERROR 和排查上下文。
+ * 数据如何流动：原始 stdout 只在内存中 JSON.parse，成功按调用方类型返回，失败记录操作名称与解析原因但不回显潜在敏感全文。
+ * 何时失败：空响应、截断 JSON 或 GitHub/扩展输出污染 stdout 时返回 GITHUB_ERROR。
+ * 如何排查：用同一只读 gh api 命令检查原始响应与扩展配置；禁止把 token 或完整内容加入 details。
+ * 什么不能改：不能 eval、宽松修补 JSON 或在解析失败后猜默认对象继续写入。
+ */
+function parseGitHubJson<T>(result: GhResult, operation: string): T {
+  try {
+    return JSON.parse(result.stdout) as T;
+  } catch (error) {
+    throw new AppError("GITHUB_ERROR", `${operation}响应不是有效 JSON`, {
+      reason: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
+/**
+ * 生成唯一写入格式的 commit subject 与四项审计 trailers。
+ *
+ * 为什么存在：幂等恢复、人工审计和未来 Skill 都依赖稳定 trailers，若各操作自行拼接会出现无法检索的历史。
+ * 数据如何流动：已校验 operation、Entry 与 UUID 被编码为固定六行文本，直接进入 Contents API message 字段。
+ * 何时失败：函数本身不抛错；调用前 Entry/request 已校验，GitHub 拒绝 message 时由写路径处理。
+ * 如何排查：查看远端 commit 原文，四个 trailer 必须位于最后一个段落且各占一行。
+ * 什么不能改：不能重命名 trailer、加入用户可控换行或把 request ID 只放 subject，否则历史匹配会失效。
+ */
+function commitMessage(operation: WriteOperation, entry: Entry, requestId: string): string {
+  return [
+    `content: ${operation} ${entry.id}`,
+    "",
+    `Operation: ${operation}`,
+    `Entry-ID: ${entry.id}`,
+    `Content-Version: ${entry.version}`,
+    `Request-ID: ${requestId}`,
+  ].join("\n");
+}
+
+/**
+ * 只从 commit 最后一个段落精确读取受控 trailer。
+ *
+ * 为什么存在：在整段 message 中模糊搜索可能把正文示例误认为 request ID，造成错误幂等命中或跨操作拒绝。
+ * 数据如何流动：按空行取最后段落，再匹配完整 `Name: ` 行前缀并返回去空白值；不存在则返回 undefined。
+ * 何时失败：本函数不抛错；缺失/损坏值由 findRequestCommit 统一判为 GITHUB_ERROR。
+ * 如何排查：确认 trailers 是 commit 的最后段落，没有在它们之间插入空行或改名。
+ * 什么不能改：不能回退 includes/正则全文搜索，也不能把正文中的同名字段视为审计 trailer。
+ */
+function trailer(message: string, name: string): string | undefined {
+  const trailerBlock =
+    message
+      .trim()
+      .split(/\n\s*\n/gu)
+      .at(-1) ?? "";
+  return trailerBlock
+    .split("\n")
+    .find((line) => line.startsWith(`${name}: `))
+    ?.slice(name.length + 2)
+    .trim();
 }
 
 /**
@@ -103,10 +207,10 @@ export class GitHubContentClient {
       const code = errorCodeFor(repo);
       throw new AppError(code, "无法读取固定 GitHub 仓库", { stderr: repo.stderr.trim() });
     }
-    const data = JSON.parse(repo.stdout) as {
+    const data = parseGitHubJson<{
       default_branch?: string;
       permissions?: { push?: boolean };
-    };
+    }>(repo, "GitHub 仓库");
     if (data.default_branch !== GITHUB_BRANCH || data.permissions?.push !== true) {
       throw new AppError("FORBIDDEN", "当前身份没有固定仓库 main 的写权限", data);
     }
@@ -129,6 +233,19 @@ export class GitHubContentClient {
    * 什么不能改：不能接受目录穿越、自动回退本地文件或忽略 parseEntry 错误。
    */
   getEntry(id: string): RemoteEntry {
+    return this.getEntryAtRef(id, GITHUB_BRANCH);
+  }
+
+  /**
+   * 从指定 commit 或 main 读取同一路径，用于普通 get 与幂等重放。
+   *
+   * 为什么存在：相同 request ID 重试必须返回原 commit 当时的版本，不能误返回后来又被修改的 main 内容。
+   * 数据如何流动：校验 ID 后通过 Contents API 读取 ref，解码并执行完整 Markdown/Schema 校验，保留 blob SHA 和固定路径。
+   * 何时失败：ID 非法、ref/path 不存在、API/编码异常或历史 Markdown 损坏时抛出稳定 AppError。
+   * 如何排查：普通读取检查 main；幂等读取检查 commit SHA 是否仍存在及该 commit 的 trailers/path。
+   * 什么不能改：不能在幂等场景回退 main，也不能跳过历史内容校验后只返回 commit 元数据。
+   */
+  private getEntryAtRef(id: string, ref: string): RemoteEntry {
     if (!entryIdSchema.safeParse(id).success) {
       throw new AppError("VALIDATION_FAILED", "ID 格式不合法", { id });
     }
@@ -139,23 +256,132 @@ export class GitHubContentClient {
       "GET",
       repositoryEndpoint(`/contents/${path}`),
       "-f",
-      `ref=${GITHUB_BRANCH}`,
+      `ref=${ref}`,
     ]);
     if (isNotFound(result)) throw new AppError("NOT_FOUND", "条目不存在", { id });
     if (result.status !== 0) {
       throw new AppError("GITHUB_ERROR", "读取 GitHub 条目失败", { stderr: result.stderr.trim() });
     }
 
-    const response = JSON.parse(result.stdout) as {
+    const response = parseGitHubJson<{
       content: string;
       encoding: string;
       sha: string;
-    };
+    }>(result, "GitHub 内容");
     if (response.encoding !== "base64" || !response.sha) {
       throw new AppError("GITHUB_ERROR", "GitHub 内容响应格式异常", { id });
     }
     const source = Buffer.from(response.content.replace(/\n/gu, ""), "base64").toString("utf8");
     return { entry: parseEntry(source), sha: response.sha, path };
+  }
+
+  /**
+   * 在固定仓库完整提交历史中查找 request ID，并解析受控 commit trailers。
+   *
+   * 为什么存在：Contents PUT 可能已在 GitHub 成功而客户端超时；重试必须识别原 commit，避免第二次版本递增和重复提交。
+   * 数据如何流动：分页读取 main 的全部 commits，精确匹配 Request-ID trailer，再解析 operation、entry ID 与 content version；零条返回 undefined。
+   * 何时失败：API/JSON 异常、同一 request ID 出现多次、trailers 损坏或字段非法时返回 GITHUB_ERROR。
+   * 如何排查：用只读 commits API 搜索 Request-ID，核对四个 trailer 与唯一 commit SHA，禁止直接重放写请求猜测结果。
+   * 什么不能改：不能只检查最近一页、模糊匹配 message 正文或把重复 request ID 任意选一条。
+   */
+  private findRequestCommit(requestId: string): RequestCommit | undefined {
+    assertRequestId(requestId);
+    const result = this.runGh([
+      "api",
+      "--method",
+      "GET",
+      repositoryEndpoint("/commits"),
+      "-f",
+      `sha=${GITHUB_BRANCH}`,
+      "-f",
+      "per_page=100",
+      "--paginate",
+      "--slurp",
+    ]);
+    if (result.status !== 0) {
+      throw new AppError(errorCodeFor(result), "读取 request ID 历史失败", {
+        stderr: result.stderr.trim(),
+      });
+    }
+    const payload = parseGitHubJson<unknown>(result, "GitHub commit 历史");
+    const pages = Array.isArray(payload) && payload.every(Array.isArray) ? payload : [payload];
+    const commits = pages.flatMap((page) => (Array.isArray(page) ? page : [])) as Array<{
+      sha?: string;
+      commit?: { message?: string };
+    }>;
+    const matches = commits.filter(
+      (commit) => trailer(commit.commit?.message ?? "", "Request-ID") === requestId,
+    );
+    if (matches.length === 0) return undefined;
+    if (matches.length !== 1) {
+      throw new AppError("GITHUB_ERROR", "request ID 对应多个 commit", {
+        request_id: requestId,
+        commits: matches.map((commit) => commit.sha),
+      });
+    }
+    const match = matches[0];
+    const message = match.commit?.message ?? "";
+    const operation = trailer(message, "Operation");
+    const entryId = trailer(message, "Entry-ID");
+    const version = Number(trailer(message, "Content-Version"));
+    if (
+      !match.sha ||
+      !["create", "update", "delete", "restore"].includes(operation ?? "") ||
+      !entryIdSchema.safeParse(entryId).success ||
+      !Number.isInteger(version) ||
+      version < 1
+    ) {
+      throw new AppError("GITHUB_ERROR", "request commit trailers 损坏", {
+        request_id: requestId,
+        commit: match.sha,
+      });
+    }
+    return {
+      sha: match.sha,
+      requestId,
+      operation: operation as WriteOperation,
+      entryId: entryId as string,
+      version,
+    };
+  }
+
+  /**
+   * 把历史 request commit 还原为稳定写结果，并阻止 request ID 跨操作复用。
+   *
+   * 为什么存在：幂等不仅是“不再写”，还必须向调用方返回原 commit、原版本和原 blob SHA，才能可靠恢复超时调用。
+   * 数据如何流动：查找 request trailer；若存在则核对 operation/id，从该 commit ref 读取文件并核对 version，组装 idempotent=true 结果。
+   * 何时失败：同一 request ID 被另一个条目/操作占用，或历史内容与 trailer 版本不一致时返回 VALIDATION_FAILED/GITHUB_ERROR。
+   * 如何排查：搜索 Request-ID 对应 commit 并核对 trailers；不要通过更改 expected_version 来强行复用旧 ID。
+   * 什么不能改：不能把 request ID 只限定在单文件历史，也不能用当前 main 内容替代原 commit 内容。
+   */
+  private resolveIdempotent(
+    requestId: string,
+    id: string,
+    operation: WriteOperation,
+  ): GitHubWriteResult | undefined {
+    const commit = this.findRequestCommit(requestId);
+    if (!commit) return undefined;
+    if (commit.entryId !== id || commit.operation !== operation) {
+      throw new AppError("VALIDATION_FAILED", "request ID 已被其他写操作使用", {
+        request_id: requestId,
+        expected: { id, operation },
+        actual: { id: commit.entryId, operation: commit.operation },
+      });
+    }
+    const remote = this.getEntryAtRef(id, commit.sha);
+    if (remote.entry.version !== commit.version) {
+      throw new AppError("GITHUB_ERROR", "request commit 版本与文件内容不一致", {
+        request_id: requestId,
+        commit: commit.sha,
+      });
+    }
+    return {
+      ...remote,
+      commitSha: commit.sha,
+      requestId,
+      operation,
+      idempotent: true,
+    };
   }
 
   /**
@@ -181,10 +407,10 @@ export class GitHubContentClient {
         stderr: result.stderr.trim(),
       });
     }
-    const response = JSON.parse(result.stdout) as {
+    const response = parseGitHubJson<{
       truncated?: boolean;
       tree?: Array<{ path?: string; type?: string }>;
-    };
+    }>(result, "GitHub tree");
     if (response.truncated === true) {
       throw new AppError("GITHUB_ERROR", "GitHub tree 响应被截断，无法保证返回全部条目");
     }
@@ -204,17 +430,20 @@ export class GitHubContentClient {
   /**
    * 在远端 ID 不存在时用单次 PUT 创建一份 Markdown 与一个内容 commit。
    *
-   * 为什么存在：M1 要保证一个写操作对应一个文件和一个 Git commit，并把版本与 request ID 留在可审计 trailer 中。
-   * 数据如何流动：先通过 getEntry 判重，再把已校验 Markdown base64 编码，PUT 到固定 main，最后只返回 commit SHA 与路径。
-   * 何时失败：已有 ID 返回 ID_CONFLICT；权限、网络或异常 API 响应返回 FORBIDDEN/GITHUB_ERROR，绝不自动重试。
-   * 如何排查：根据错误码检查远端文件、doctor 与 GitHub API 响应；请求失败后先 get 确认是否已落盘。
-   * 什么不能改：不能覆盖现有 SHA、不能改写本地工作区、不能创建 PR，也不能在 M3 幂等机制完成前自动重试。
+   * 为什么存在：create 要保证一个请求对应一个文件和一个 Git commit，并让自动/显式 ID、回收 ID 冲突与超时重试走同一路径。
+   * 数据如何流动：先查 request 历史，再通过 getEntry 判重，把已校验 Markdown base64 编码后 PUT main，返回 commit/blob SHA 与幂等标记。
+   * 何时失败：已发布或已回收 ID 返回 ID_CONFLICT；权限、网络、异常响应或 request ID 跨操作复用返回稳定错误。
+   * 如何排查：根据错误码检查远端文件与 commit trailers；不确定 PUT 是否成功时用同 request ID 原样重试。
+   * 什么不能改：不能覆盖现有 SHA、不能改写本地工作区、不能创建 PR，也不能用新 request ID 重试一次不确定的写入。
    */
-  createEntry(
-    entry: Entry,
-    markdown: string,
-    requestId: string,
-  ): { commitSha: string; path: string } {
+  createEntry(entry: Entry, markdown: string, requestId: string): GitHubWriteResult {
+    if (serializeEntry(entry) !== markdown) {
+      throw new AppError("VALIDATION_FAILED", "create Markdown 与领域条目不一致", {
+        id: entry.id,
+      });
+    }
+    const prior = this.resolveIdempotent(requestId, entry.id, "create");
+    if (prior) return prior;
     try {
       this.getEntry(entry.id);
       throw new AppError("ID_CONFLICT", "条目 ID 已存在且不可复用", { id: entry.id });
@@ -223,16 +452,8 @@ export class GitHubContentClient {
     }
 
     const path = entryPath(entry.id);
-    const message = [
-      `content: create ${entry.id}`,
-      "",
-      "Operation: create",
-      `Entry-ID: ${entry.id}`,
-      `Content-Version: ${entry.version}`,
-      `Request-ID: ${requestId}`,
-    ].join("\n");
     const payload = JSON.stringify({
-      message,
+      message: commitMessage("create", entry, requestId),
       content: Buffer.from(markdown, "utf8").toString("base64"),
       branch: GITHUB_BRANCH,
     });
@@ -241,17 +462,136 @@ export class GitHubContentClient {
       payload,
     );
     if (result.status !== 0) {
+      const recovered = this.resolveIdempotent(requestId, entry.id, "create");
+      if (recovered) return recovered;
       const code = errorCodeFor(result);
-      throw new AppError(code, "GitHub 创建条目失败", {
-        stderr: result.stderr.trim(),
+      throw new AppError(
+        /(?:HTTP 409|HTTP 422|Conflict|already exists)/iu.test(result.stderr)
+          ? "ID_CONFLICT"
+          : code,
+        "GitHub 创建条目失败",
+        {
+          stderr: result.stderr.trim(),
+          id: entry.id,
+        },
+      );
+    }
+    const response = parseGitHubJson<{
+      content?: { sha?: string };
+      commit?: { sha?: string };
+    }>(result, "GitHub 创建");
+    if (!response.commit?.sha || !response.content?.sha) {
+      const recovered = this.resolveIdempotent(requestId, entry.id, "create");
+      if (recovered) return recovered;
+      throw new AppError("GITHUB_ERROR", "GitHub 创建响应缺少 commit 或 blob SHA", {
         id: entry.id,
       });
     }
-    const response = JSON.parse(result.stdout) as { commit?: { sha?: string } };
-    if (!response.commit?.sha) {
-      throw new AppError("GITHUB_ERROR", "GitHub 创建响应缺少 commit SHA", { id: entry.id });
+    return {
+      entry,
+      sha: response.content.sha,
+      path,
+      commitSha: response.commit.sha,
+      requestId,
+      operation: "create",
+      idempotent: false,
+    };
+  }
+
+  /**
+   * 以版本与 blob SHA 双重 CAS 执行 update/delete/restore 的单文件 commit。
+   *
+   * 为什么存在：领域版本阻止旧业务状态覆盖，GitHub SHA 阻止同版本文件在远端被旁路修改；二者必须在同一写路径强制执行。
+   * 数据如何流动：先解析幂等历史，再读取 main、比较 version/SHA，调用纯领域 mutate 生成下一版本，序列化后带旧 SHA PUT；失败后再查一次 request 恢复超时成功。
+   * 何时失败：条目不存在、护栏冲突、mutate 校验失败、GitHub 409/422、权限或异常响应时抛出稳定错误且不自动合并。
+   * 如何排查：先 get 获取最新 version/SHA；若请求可能超时，用同 request ID 原样重试；其他错误检查 commit trailers 与 API stderr。
+   * 什么不能改：不能省略 SHA、自动刷新 expected 值后继续、一次写多个文件、改本地工作区或对冲突做自动重试。
+   */
+  mutateEntry(options: MutationOptions, mutate: (current: Entry) => Entry): GitHubWriteResult {
+    if (
+      !entryIdSchema.safeParse(options.id).success ||
+      !Number.isInteger(options.expectedVersion) ||
+      options.expectedVersion < 1 ||
+      !/^[a-f0-9]{40}$/u.test(options.expectedSha)
+    ) {
+      throw new AppError("VALIDATION_FAILED", "mutation 并发参数不合法", {
+        id: options.id,
+        expected_version: options.expectedVersion,
+        expected_sha: options.expectedSha,
+      });
     }
-    return { commitSha: response.commit.sha, path };
+    const prior = this.resolveIdempotent(options.requestId, options.id, options.operation);
+    if (prior) return prior;
+    const current = this.getEntry(options.id);
+    if (current.entry.version !== options.expectedVersion || current.sha !== options.expectedSha) {
+      throw new AppError("VERSION_CONFLICT", "条目版本或远端 SHA 已变化", {
+        expected_version: options.expectedVersion,
+        actual_version: current.entry.version,
+        expected_sha: options.expectedSha,
+        actual_sha: current.sha,
+      });
+    }
+    const next = mutate(current.entry);
+    const expectedStatus =
+      options.operation === "delete"
+        ? "recycled"
+        : options.operation === "restore"
+          ? "published"
+          : current.entry.status;
+    if (
+      next.id !== current.entry.id ||
+      next.version !== current.entry.version + 1 ||
+      next.addedAt !== current.entry.addedAt ||
+      next.status !== expectedStatus ||
+      Date.parse(next.updatedAt) <= Date.parse(current.entry.updatedAt)
+    ) {
+      throw new AppError("VALIDATION_FAILED", "mutation 未生成合法的下一版本", {
+        id: current.entry.id,
+        current_version: current.entry.version,
+        next_version: next.version,
+      });
+    }
+    const path = entryPath(next.id);
+    const result = this.runGh(
+      ["api", "--method", "PUT", repositoryEndpoint(`/contents/${path}`), "--input", "-"],
+      JSON.stringify({
+        message: commitMessage(options.operation, next, options.requestId),
+        content: Buffer.from(serializeEntry(next), "utf8").toString("base64"),
+        branch: GITHUB_BRANCH,
+        sha: options.expectedSha,
+      }),
+    );
+    if (result.status !== 0) {
+      const recovered = this.resolveIdempotent(options.requestId, options.id, options.operation);
+      if (recovered) return recovered;
+      throw new AppError(
+        /(?:HTTP 409|HTTP 422|Conflict|does not match)/iu.test(result.stderr)
+          ? "VERSION_CONFLICT"
+          : errorCodeFor(result),
+        "GitHub 修改条目失败",
+        { stderr: result.stderr.trim(), id: options.id },
+      );
+    }
+    const response = parseGitHubJson<{
+      content?: { sha?: string };
+      commit?: { sha?: string };
+    }>(result, "GitHub 修改");
+    if (!response.commit?.sha || !response.content?.sha) {
+      const recovered = this.resolveIdempotent(options.requestId, options.id, options.operation);
+      if (recovered) return recovered;
+      throw new AppError("GITHUB_ERROR", "GitHub 修改响应缺少 commit 或 blob SHA", {
+        id: options.id,
+      });
+    }
+    return {
+      entry: next,
+      sha: response.content.sha,
+      path,
+      commitSha: response.commit.sha,
+      requestId: options.requestId,
+      operation: options.operation,
+      idempotent: false,
+    };
   }
 }
 
