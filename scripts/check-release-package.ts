@@ -84,29 +84,65 @@ function extractSrcsetUrls(source: string): string[] {
   return urls;
 }
 
+type CssEscape = { decoded: string; end: number; validInIdentifier: boolean };
+
+/**
+ * 从反斜杠位置消费一个 CSS escape，并返回统一边界与解码值。
+ *
+ * 为什么存在：函数名、URL 与 at-keyword 必须共享 1–6 位 hex、CSS whitespace、CRLF 和普通 escape 规则。调用方传入反斜杠索引；有效 escape 返回首个未消费位置，换行或 EOF 标记为不可用于 identifier。非法 code point 降级为替代字符且不抛错。排查时核对 end 与原 token。不能在调用方复制游标算法，否则不同资源路径会再次漂移。
+ */
+function consumeCssEscape(source: string, start: number): CssEscape {
+  let cursor = start + 1;
+  if (cursor >= source.length) return { decoded: "�", end: cursor, validInIdentifier: false };
+  if (/[\n\r\f]/u.test(source[cursor])) {
+    if (source[cursor] === "\r" && source[cursor + 1] === "\n") cursor += 1;
+    return { decoded: "", end: cursor + 1, validInIdentifier: false };
+  }
+  const hexStart = cursor;
+  while (cursor < source.length && cursor - hexStart < 6 && /[\da-f]/iu.test(source[cursor])) {
+    cursor += 1;
+  }
+  if (cursor > hexStart) {
+    const codePoint = Number.parseInt(source.slice(hexStart, cursor), 16);
+    if (/[ \n\r\t\f]/u.test(source[cursor] ?? "")) {
+      if (source[cursor] === "\r" && source[cursor + 1] === "\n") cursor += 1;
+      cursor += 1;
+    }
+    const invalid =
+      codePoint === 0 || codePoint > 0x10ffff || (codePoint >= 0xd800 && codePoint <= 0xdfff);
+    return {
+      decoded: invalid ? "�" : String.fromCodePoint(codePoint),
+      end: cursor,
+      validInIdentifier: true,
+    };
+  }
+  const codePoint = source.codePointAt(cursor) ?? 0xfffd;
+  return {
+    decoded: String.fromCodePoint(codePoint),
+    end: cursor + (codePoint > 0xffff ? 2 : 1),
+    validInIdentifier: true,
+  };
+}
+
 /**
  * 按 CSS Syntax 规则解码标识符与 URL token 中的反斜杠转义。
  *
- * 为什么存在：浏览器会把 `u\\72l` 与十六进制点段还原后再解释资源地址。字符串进入后逐个替换 hex、换行和普通转义；非法 code point 使用替代字符，不抛错。排查时比较 PostCSS token 与解码值。不能只解码 URL 参数而保留函数名，否则可漏掉 url()。
+ * 为什么存在：浏览器会把 `u\\72l` 与十六进制点段还原后再解释资源地址。字符串进入后复用唯一 escape 消费器；非法 code point 使用替代字符，换行 escape 被移除且不抛错。排查时比较 PostCSS token 与解码值。不能只解码 URL 参数而保留函数名，否则可漏掉 url()。
  */
 function decodeCssEscapes(source: string): string {
-  return source.replace(
-    /\\(?:([\da-f]{1,6})(?:\r\n|[ \n\r\t\f])?|(\r\n|[\n\r\f])|(.))/giu,
-    (_escape, hex, newline, character) => {
-      if (hex) {
-        const codePoint = Number.parseInt(hex, 16);
-        if (
-          codePoint === 0 ||
-          codePoint > 0x10ffff ||
-          (codePoint >= 0xd800 && codePoint <= 0xdfff)
-        ) {
-          return "�";
-        }
-        return String.fromCodePoint(codePoint);
-      }
-      return newline ? "" : character;
-    },
-  );
+  let decoded = "";
+  let cursor = 0;
+  while (cursor < source.length) {
+    if (source[cursor] !== "\\") {
+      decoded += source[cursor];
+      cursor += 1;
+      continue;
+    }
+    const escape = consumeCssEscape(source, cursor);
+    decoded += escape.decoded;
+    cursor = escape.end;
+  }
+  return decoded;
 }
 
 /**
@@ -165,34 +201,21 @@ function resolveImportParameters(serializedRule: string): string | undefined {
     return /[-_a-z\d]/iu.test(character) || codePoint >= 0x80;
   };
   let cursor = 1;
-  let rawName = "";
+  let decodedName = "";
   while (cursor < serializedRule.length) {
     const character = serializedRule[cursor];
     if (isCssNameCodePoint(character)) {
-      rawName += character;
+      decodedName += character;
       cursor += 1;
       continue;
     }
     if (character !== "\\") break;
-    const escapeStart = cursor;
-    cursor += 1;
-    if (isCssWhitespace(serializedRule[cursor] ?? "")) return undefined;
-    const hexStart = cursor;
-    while (
-      cursor < serializedRule.length &&
-      cursor - hexStart < 6 &&
-      /[\da-f]/iu.test(serializedRule[cursor])
-    ) {
-      cursor += 1;
-    }
-    if (cursor === hexStart && cursor < serializedRule.length) cursor += 1;
-    if (cursor > hexStart && isCssWhitespace(serializedRule[cursor] ?? "")) {
-      if (serializedRule[cursor] === "\r" && serializedRule[cursor + 1] === "\n") cursor += 1;
-      cursor += 1;
-    }
-    rawName += serializedRule.slice(escapeStart, cursor);
+    const escape = consumeCssEscape(serializedRule, cursor);
+    if (!escape.validInIdentifier) return undefined;
+    decodedName += escape.decoded;
+    cursor = escape.end;
   }
-  if (decodeCssEscapes(rawName).toLocaleLowerCase() !== "import") return undefined;
+  if (decodedName.toLocaleLowerCase() !== "import") return undefined;
   while (cursor < serializedRule.length) {
     if (isCssWhitespace(serializedRule[cursor])) {
       cursor += 1;
