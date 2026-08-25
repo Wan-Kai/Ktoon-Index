@@ -349,6 +349,73 @@ describe("M3 GitHub 并发与幂等写入", () => {
     expect(putCount).toBe(0);
   });
 
+  it("commit 历史中的非 SHA 字符串会停止 create，不会继续 PUT", () => {
+    let putCount = 0;
+    const runner: GhRunner = (args) => {
+      if (args.some((argument) => argument.endsWith("/commits"))) {
+        return {
+          status: 0,
+          stdout: JSON.stringify([[{ sha: "not-a-sha", commit: { message: "ordinary commit" } }]]),
+          stderr: "",
+        };
+      }
+      if (args.includes("PUT")) putCount += 1;
+      return { status: 1, stdout: "", stderr: "HTTP 404: Not Found" };
+    };
+
+    expect(() =>
+      new GitHubContentClient(runner).createEntry(
+        baseEntry(),
+        serializeEntry(baseEntry()),
+        "123e4567-e89b-42d3-a456-426614174011",
+      ),
+    ).toThrowError(expect.objectContaining({ code: "GITHUB_ERROR" }));
+    expect(putCount).toBe(0);
+  });
+
+  it("匹配 commit 的详情为 null 时返回稳定 GITHUB_ERROR", () => {
+    const requestId = "123e4567-e89b-42d3-a456-426614174012";
+    const commitSha = "c".repeat(40);
+    const runner: GhRunner = (args) => {
+      const endpoint = args.find((argument) => argument.startsWith("repos/")) ?? "";
+      if (endpoint.endsWith("/commits")) {
+        return {
+          status: 0,
+          stdout: JSON.stringify([
+            [
+              {
+                sha: commitSha,
+                commit: {
+                  message: [
+                    "content: create mcp-inspector",
+                    "",
+                    "Operation: create",
+                    "Entry-ID: mcp-inspector",
+                    "Content-Version: 1",
+                    `Request-ID: ${requestId}`,
+                  ].join("\n"),
+                },
+              },
+            ],
+          ]),
+          stderr: "",
+        };
+      }
+      if (endpoint.endsWith(`/commits/${commitSha}`)) {
+        return { status: 0, stdout: "null", stderr: "" };
+      }
+      return { status: 1, stdout: "", stderr: "unexpected request" };
+    };
+
+    expect(() =>
+      new GitHubContentClient(runner).createEntry(
+        baseEntry(),
+        serializeEntry(baseEntry()),
+        requestId,
+      ),
+    ).toThrowError(expect.objectContaining({ code: "GITHUB_ERROR" }));
+  });
+
   it("幂等恢复会拒绝 trailer 操作与历史文件状态不一致", () => {
     const requestId = "123e4567-e89b-42d3-a456-426614174010";
     const commitSha = "c".repeat(40);

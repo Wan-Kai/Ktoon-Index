@@ -318,6 +318,7 @@ export class GitHubContentClient {
           typeof commit !== "object" ||
           commit === null ||
           typeof commit.sha !== "string" ||
+          !/^[a-f0-9]{40}$/u.test(commit.sha) ||
           typeof commit.commit?.message !== "string",
       )
     ) {
@@ -381,19 +382,28 @@ export class GitHubContentClient {
         stderr: result.stderr.trim(),
       });
     }
-    const detail = parseGitHubJson<{
-      files?: Array<{ filename?: string; status?: string }>;
-    }>(result, "GitHub request commit");
+    const detail = parseGitHubJson<unknown>(result, "GitHub request commit");
+    if (
+      typeof detail !== "object" ||
+      detail === null ||
+      !("files" in detail) ||
+      !Array.isArray(detail.files)
+    ) {
+      throw new AppError("GITHUB_ERROR", "GitHub request commit 详情形状异常", {
+        commit: commit.sha,
+      });
+    }
+    const files = detail.files as Array<{ filename?: string; status?: string }>;
     const expectedFileStatus = commit.operation === "create" ? "added" : "modified";
     if (
-      detail.files?.length !== 1 ||
-      detail.files[0]?.filename !== entryPath(commit.entryId) ||
-      detail.files[0]?.status !== expectedFileStatus
+      files.length !== 1 ||
+      files[0]?.filename !== entryPath(commit.entryId) ||
+      files[0]?.status !== expectedFileStatus
     ) {
       throw new AppError("GITHUB_ERROR", "request commit 实际文件变更与 trailers 不一致", {
         commit: commit.sha,
         operation: commit.operation,
-        files: detail.files,
+        files,
       });
     }
   }
