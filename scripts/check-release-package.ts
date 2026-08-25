@@ -86,6 +86,8 @@ function extractSrcsetUrls(source: string): string[] {
 
 type CssEscape = { decoded: string; end: number; validInIdentifier: boolean };
 
+const isCssWhitespace = (character: string): boolean => /[ \n\r\t\f]/u.test(character);
+
 /**
  * 从反斜杠位置消费一个 CSS escape，并返回统一边界与解码值。
  *
@@ -104,7 +106,7 @@ function consumeCssEscape(source: string, start: number): CssEscape {
   }
   if (cursor > hexStart) {
     const codePoint = Number.parseInt(source.slice(hexStart, cursor), 16);
-    if (/[ \n\r\t\f]/u.test(source[cursor] ?? "")) {
+    if (isCssWhitespace(source[cursor] ?? "")) {
       if (source[cursor] === "\r" && source[cursor + 1] === "\n") cursor += 1;
       cursor += 1;
     }
@@ -117,8 +119,9 @@ function consumeCssEscape(source: string, start: number): CssEscape {
     };
   }
   const codePoint = source.codePointAt(cursor) ?? 0xfffd;
+  const invalid = codePoint === 0 || (codePoint >= 0xd800 && codePoint <= 0xdfff);
   return {
-    decoded: String.fromCodePoint(codePoint),
+    decoded: invalid ? "�" : String.fromCodePoint(codePoint),
     end: cursor + (codePoint > 0xffff ? 2 : 1),
     validInIdentifier: true,
   };
@@ -195,7 +198,6 @@ function extractImportReference(source: string): string | undefined {
  */
 function resolveImportParameters(serializedRule: string): string | undefined {
   if (!serializedRule.startsWith("@")) return undefined;
-  const isCssWhitespace = (character: string): boolean => /[ \n\r\t\f]/u.test(character);
   const isCssNameCodePoint = (character: string): boolean => {
     const codePoint = character.codePointAt(0) ?? 0;
     return /[-_a-z\d]/iu.test(character) || codePoint >= 0x80;
