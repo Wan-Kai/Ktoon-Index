@@ -98,7 +98,11 @@ type CssEscape = { decoded: string; end: number; validInIdentifier: boolean };
  */
 const isAsciiWhitespace = (character: string): boolean => /[ \n\r\t\f]/u.test(character);
 
-/** 只移除语法定义的 ASCII whitespace，保留 NBSP 等 URL 字符。 */
+/**
+ * 只移除资源 token 首尾的 ASCII whitespace。
+ *
+ * 为什么存在：原生 trim 会错误删除 NBSP 等合法 URL 字符。输入通过首尾双游标收缩后返回原字符串切片；纯变换没有失败分支。排查时比较切片前后的 code point。不能换回 trim/trimStart/trimEnd，否则发布校验路径会再次偏离浏览器请求。
+ */
 function trimAsciiWhitespace(source: string): string {
   let start = 0;
   let end = source.length;
