@@ -10,15 +10,15 @@ M7 完成内容维护第一阶段的安全硬化、真实远端验证、页面�
 - 测试覆盖 Frontmatter 注入、危险协议、原始 HTML、异常 Unicode 标签、损坏 JSON，以及损坏输入不会触发 GitHub 请求。
 - Skill 仍只调用受控 CLI；元数据、仓库外定位、CRUD 命令和脱离仓库失败语义均有契约测试。
 
-本地门禁结果：12 个测试文件、62 个测试全部通过；`npm run verify` 同时通过格式、类型、事实源生成、Vite 生产构建和发布包校验。发布包包含 20 个公开条目、20 个详情数据与 20 组引用。
+本地门禁结果：13 个测试文件、66 个测试全部通过；`npm run verify` 同时通过格式、类型、事实源生成、Vite 生产构建和发布包校验。发布包包含 20 个公开条目、20 个详情数据与 20 组引用。
 
 ## 真实 GitHub sandbox
 
 集成脚本 `npm run verify:github-sandbox` 使用一次性远端分支和生产 `GitHubContentClient` 验证真实 GitHub API，不修改 `main`。2026-08-25 演练结果：
 
-- 分支：`m7-sandbox-da4e78da`，完成后已删除；
-- create request：`e712b1fd-b222-442f-934a-f9409a865fb1`；commit：`5b51334298a89ab1ab8d4d0e76f7bab4adb8fa4b`；
-- update request：`f52f663b-299a-4fd3-bb1e-28523e4d1bcf`；commit：`72e0c8ff062be4b5d97406eb30e3c6c821ef9966`；
+- 分支：`m7-sandbox-1dc50cf2`，完成后已删除；
+- create request：`3c1211ca-1661-48ed-91b6-daebedfaef1f`；commit：`074a07ae26c1ffdf3096f13b88c4ba25ad1129e0`；
+- update request：`9b1fc5fb-eb79-41ae-badb-fdcbafa754ae`；commit：`6d4707111b3832a146b3d26dd662eae4df0c195d`；
 - create/update 原 request ID 重放均返回 `idempotent: true`，没有重复 commit；
 - 过期 version/SHA 返回 `VERSION_CONFLICT`，失败前后分支 head 不变；
 - 每个成功 commit 只修改一个条目，并包含 operation、entry ID、content version 与 request ID trailers；

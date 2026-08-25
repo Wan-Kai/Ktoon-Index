@@ -67,11 +67,31 @@ Actions 按以下顺序运行：事实源校验、重新生成、格式、类型
 
 常见定位：
 
-- 内容校验失败：只把 `content/entries/<id>.md` 用作问题定位依据，随后通过 Skill/CLI 使用同一 Schema 修复，禁止直接编辑事实源；
+- 内容输入校验失败、远端事实源仍可读取：通过 Skill/CLI 使用同一 Schema 修复，禁止直接编辑事实源；
+- 远端事实源已损坏、`entry get/update` 均无法解析：进入下方“损坏事实源紧急恢复”，不要反复执行 mutation；
 - 生成数据不一致：运行 `npm run build:content`，不要手工修补 `data/`；
 - 静态资源失败：运行 `npm run build && npm run verify:release`；
 - GitHub 写入异常：先 `doctor` 和 `entry get`，再核对 request ID 对应 commit trailers；
 - Pages 尚未更新：确认 workflow 的 deploy job，而不重复提交相同 mutation。
+
+### 损坏事实源紧急恢复
+
+本流程只用于远端 Markdown 已经损坏，导致 CLI 无法读取并因此无法自修复的情况。正常内容维护仍必须走 Skill/CLI。先从 Actions 或 `git log -- content/entries/<id>.md` 找到该文件最后一个已通过门禁的 commit，然后用普通纠正 commit 恢复这一个文件：
+
+```bash
+git fetch origin main
+git switch main
+git pull --ff-only origin main
+git status --short
+git restore --source=<known-good-commit> -- content/entries/<id>.md
+git diff -- content/entries/<id>.md
+npm run verify
+git add content/entries/<id>.md
+git commit -m "fix: restore damaged entry <id>"
+git push origin main
+```
+
+执行前要求工作区为空；`known-good-commit` 必须是该文件最后一次成功发布的版本。只允许恢复损坏文件，不顺带修改其他内容；不得 force-push。推送并通过 Actions 后，重新执行 `entry get <id>`，后续维护恢复使用 Skill/CLI。
 
 ## 从静态恢复点恢复
 
