@@ -57,6 +57,18 @@ describe("M1 Entry Schema", () => {
     expect(parseEntry(markdown)).toEqual(entry);
   });
 
+  it("拒绝绕过写入入口的非规范或重复事实源标签", () => {
+    const entry = createEntry(createInput, new Date("2026-08-25T08:00:00.000Z"));
+    const markdown = serializeEntry(entry).replace(
+      "tags:\n  - mcp\n  - agent-tooling",
+      "tags:\n  - MCP\n  - ｍｃｐ",
+    );
+
+    expect(() => parseEntry(markdown)).toThrowError(
+      expect.objectContaining({ code: "VALIDATION_FAILED" }),
+    );
+  });
+
   it("拒绝非 HTTPS 链接与超出白名单的 Markdown", () => {
     expect(() =>
       createEntry({ ...createInput, source: { title: "bad", url: "http://example.com" } }),

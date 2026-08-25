@@ -2,7 +2,9 @@ import { spawnSync } from "node:child_process";
 
 import { describe, expect, it } from "vitest";
 
+import { createProgram } from "../src/cli/index.ts";
 import { parseOutputFormat, renderTable } from "../src/cli/output.ts";
+import { GitHubContentClient, type GhRunner } from "../src/github/index.ts";
 
 describe("M1 CLI 输出契约", () => {
   it("缺失参数时只输出机器可读 JSON", () => {
@@ -39,6 +41,48 @@ describe("M1 CLI 输出契约", () => {
     expect(() => parseOutputFormat("yaml")).toThrowError(
       expect.objectContaining({ code: "VALIDATION_FAILED" }),
     );
+  });
+
+  it("table 会移除可能改变终端状态的控制字符", () => {
+    const table = renderTable([
+      {
+        TITLE: "safe\u001b]8;;https://evil.example\u0007CLICK\u001b]8;;\u0007",
+      },
+    ]);
+
+    expect(table).toContain("safe");
+    expect(table).toContain("CLICK");
+    expect(table).not.toContain("\u001b");
+    expect(table).not.toContain("\u0007");
+  });
+
+  it("非法时间和空搜索词在任何 GitHub 调用前失败", async () => {
+    const calls: string[][] = [];
+    const runner: GhRunner = (args) => {
+      calls.push(args);
+      return { status: 0, stdout: "{}", stderr: "" };
+    };
+
+    await expect(
+      createProgram(new GitHubContentClient(runner)).parseAsync([
+        "node",
+        "ai-index",
+        "entry",
+        "list",
+        "--added-after",
+        "not-a-date",
+      ]),
+    ).rejects.toMatchObject({ code: "VALIDATION_FAILED" });
+    await expect(
+      createProgram(new GitHubContentClient(runner)).parseAsync([
+        "node",
+        "ai-index",
+        "entry",
+        "search",
+        "   ",
+      ]),
+    ).rejects.toMatchObject({ code: "VALIDATION_FAILED" });
+    expect(calls).toEqual([]);
   });
 
   it("未知输出格式在 GitHub 请求前返回 JSON 校验错误", () => {

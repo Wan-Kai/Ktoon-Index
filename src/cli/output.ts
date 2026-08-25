@@ -3,6 +3,15 @@ import { AppError } from "../content/index.ts";
 export type OutputFormat = "json" | "table";
 export type TableRow = Record<string, string | number | null | undefined>;
 
+/**
+ * 在任何查询或网络请求前解析输出格式。
+ *
+ * 为什么存在：CLI 只承诺 JSON 与 table，未知格式必须成为稳定校验错误而不是静默回退。
+ * 数据如何流动：undefined 映射默认 json；两个白名单值原样返回；其余抛出 VALIDATION_FAILED。
+ * 何时失败：调用方传入 yaml、csv、空字符串等未支持值时失败。
+ * 如何排查：删除 format 参数使用 JSON，或显式传入 `--format table`。
+ * 什么不能改：不能在输出层猜测格式，也不能等 GitHub 请求完成后再校验。
+ */
 export function parseOutputFormat(value: string | undefined): OutputFormat {
   const format = value ?? "json";
   if (format !== "json" && format !== "table") {
@@ -11,8 +20,17 @@ export function parseOutputFormat(value: string | undefined): OutputFormat {
   return format;
 }
 
+/**
+ * 把领域文本收敛为不会改变终端状态的单行单元格。
+ *
+ * 为什么存在：标题和摘要来自公开事实源，若保留 ESC、BEL 或其他控制字符，table 模式可能伪造颜色、链接和终端显示。
+ * 数据如何流动：任意标量先转字符串，再把 C0、DEL 与 C1 控制字符统一替换为空格；普通 Unicode 与完整正文原样保留。
+ * 何时失败：本函数不抛错；空值转为空字符串，恶意控制字节只失去控制能力而不会导致整条查询失败。
+ * 如何排查：若 table 与 JSON 的可见空白不同，检查源文本是否包含不可见控制字符，并用 JSON 模式确认原始数据。
+ * 什么不能改：不能只处理换行或只识别某一种 ANSI 序列；控制字符白名单遗漏会重新打开终端注入风险。
+ */
 function cellText(value: TableRow[string]): string {
-  return String(value ?? "").replace(/[\r\n\t]+/gu, " ");
+  return String(value ?? "").replace(/[\u0000-\u001f\u007f-\u009f]+/gu, " ");
 }
 
 function displayWidth(value: string): number {

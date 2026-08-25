@@ -86,6 +86,12 @@ describe("M2 内容查询语义", () => {
     expect(() => filterEntries(entries, { addedAfter: "not-a-date" })).toThrowError(
       expect.objectContaining({ code: "VALIDATION_FAILED" }),
     );
+    expect(() => filterEntries(entries, { addedAfter: "August 1, 2026" })).toThrowError(
+      expect.objectContaining({ code: "VALIDATION_FAILED" }),
+    );
+    expect(filterEntries(entries, { addedBefore: "2026-08-01" }).map((entry) => entry.id)).toEqual([
+      "mcp-inspector",
+    ]);
   });
 
   it("搜索只匹配标题和摘要，并按精确、标题包含、摘要包含排序", () => {

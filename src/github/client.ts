@@ -162,9 +162,9 @@ export class GitHubContentClient {
    * 枚举固定目录中的全部 Markdown 并复用 getEntry 解析为领域对象。
    *
    * 为什么存在：list/search/tag list 需要读取 GitHub 事实源，而不是读取生成 JSON 或当前工作区。
-   * 数据如何流动：先 GET main 上的 content/entries 目录，过滤普通 .md 文件并按名称排序，再逐条调用 getEntry 校验内容与 SHA。
-   * 何时失败：目录不存在返回空数组；其他 API 错误、异常目录项或任一 Markdown 损坏会整体失败。
-   * 如何排查：先 doctor，再检查目录 API 与具体失败文件；不能跳过坏文件返回不完整列表。
+   * 数据如何流动：GET main 的递归 Git tree，筛选 content/entries 直属 .md blob 并按路径排序，再逐条调用 getEntry 校验内容与 SHA。
+   * 何时失败：API 错误、tree 被 GitHub 标记 truncated、异常目录项或任一 Markdown 损坏会整体失败。
+   * 如何排查：先 doctor，再检查 Git Trees API 的 truncated 与具体失败文件；不能跳过坏文件返回不完整列表。
    * 什么不能改：不能改读 data/index.json，也不能在 adapter 内实现筛选、搜索或排序。
    */
   listEntries(): RemoteEntry[] {
@@ -172,9 +172,9 @@ export class GitHubContentClient {
       "api",
       "--method",
       "GET",
-      repositoryEndpoint("/contents/content/entries"),
+      repositoryEndpoint(`/git/trees/${GITHUB_BRANCH}`),
       "-f",
-      `ref=${GITHUB_BRANCH}`,
+      "recursive=1",
     ]);
     if (isNotFound(result)) return [];
     if (result.status !== 0) {
@@ -182,14 +182,24 @@ export class GitHubContentClient {
         stderr: result.stderr.trim(),
       });
     }
-    const files = JSON.parse(result.stdout) as Array<{ name?: string; type?: string }>;
-    if (!Array.isArray(files)) {
-      throw new AppError("GITHUB_ERROR", "GitHub 条目目录响应格式异常");
+    const response = JSON.parse(result.stdout) as {
+      truncated?: boolean;
+      tree?: Array<{ path?: string; type?: string }>;
+    };
+    if (response.truncated === true) {
+      throw new AppError("GITHUB_ERROR", "GitHub tree 响应被截断，无法保证返回全部条目");
     }
-    return files
-      .filter((file) => file.type === "file" && file.name?.endsWith(".md"))
-      .sort((left, right) => (left.name ?? "").localeCompare(right.name ?? ""))
-      .map((file) => this.getEntry((file.name ?? "").slice(0, -3)));
+    if (!Array.isArray(response.tree)) {
+      throw new AppError("GITHUB_ERROR", "GitHub tree 响应格式异常");
+    }
+    return response.tree
+      .filter(
+        (file) =>
+          file.type === "blob" &&
+          /^content\/entries\/[a-z0-9]+(?:-[a-z0-9]+)*\.md$/u.test(file.path ?? ""),
+      )
+      .sort((left, right) => (left.path ?? "").localeCompare(right.path ?? ""))
+      .map((file) => this.getEntry((file.path ?? "").split("/").at(-1)?.slice(0, -3) ?? ""));
   }
 
   /**

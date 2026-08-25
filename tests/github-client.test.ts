@@ -101,15 +101,21 @@ describe("M1 GitHub adapter", () => {
       ["context7.md", serializeEntry(second)],
     ]);
     const runner: GhRunner = (args) => {
-      const endpoint = args.find((argument) => argument.includes("/contents/")) ?? "";
-      if (endpoint.endsWith("/content/entries")) {
+      const endpoint =
+        args.find(
+          (argument) => argument.includes("/contents/") || argument.includes("/git/trees/"),
+        ) ?? "";
+      if (endpoint.endsWith("/git/trees/main")) {
         return {
           status: 0,
-          stdout: JSON.stringify([
-            { name: "mcp-inspector.md", type: "file" },
-            { name: "context7.md", type: "file" },
-            { name: "README.txt", type: "file" },
-          ]),
+          stdout: JSON.stringify({
+            truncated: false,
+            tree: [
+              { path: "content/entries/mcp-inspector.md", type: "blob" },
+              { path: "content/entries/context7.md", type: "blob" },
+              { path: "content/entries/README.txt", type: "blob" },
+            ],
+          }),
           stderr: "",
         };
       }
@@ -129,6 +135,18 @@ describe("M1 GitHub adapter", () => {
 
     expect(searchEntries(github.listEntries(), "context")).toEqual(
       searchEntries(memory.listEntries(), "context"),
+    );
+  });
+
+  it("拒绝把被截断的 Git tree 伪装成完整列表", () => {
+    const runner: GhRunner = () => ({
+      status: 0,
+      stdout: JSON.stringify({ truncated: true, tree: [] }),
+      stderr: "",
+    });
+
+    expect(() => new GitHubContentClient(runner).listEntries()).toThrowError(
+      expect.objectContaining({ code: "GITHUB_ERROR" }),
     );
   });
 });

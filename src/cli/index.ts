@@ -36,6 +36,15 @@ type ReadOptions = {
   format?: string;
 };
 
+/**
+ * 给所有条目读取命令挂载同一组筛选和输出参数。
+ *
+ * 为什么存在：list 与 search 的命令表面必须一致，否则 Agent 会为同一查询语义维护两套参数协议。
+ * 数据如何流动：Commander 只收集原始字符串，parseReadOptions 与领域查询层随后在任何网络请求前完成校验和解释。
+ * 何时失败：本函数不执行校验；缺失参数值由 Commander 失败，非法值由后续统一转换为 VALIDATION_FAILED。
+ * 如何排查：比较两个命令的 help 输出，并确认新增筛选同时出现在 list 与 search，不能只改其中一处。
+ * 什么不能改：不能在这里访问 GitHub、规范化标签或实现筛选；它只定义稳定的 CLI 参数表面。
+ */
 function addReadOptions(command: Command): Command {
   return command
     .option("--category <category>", "按固定分类筛选")
@@ -132,7 +141,13 @@ export function createProgram(client = new GitHubContentClient()): Command {
   program
     .name("ai-index")
     .description("Ktoon Index 内容维护 CLI")
-    .version("0.2.0")
+    .version(
+      (
+        JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8")) as {
+          version: string;
+        }
+      ).version,
+    )
     .exitOverride()
     .configureOutput({
       // Commander 参数错误由 runCli 统一输出 JSON，禁止先混入一段不可解析的纯文本。
@@ -193,6 +208,7 @@ export function createProgram(client = new GitHubContentClient()): Command {
   addReadOptions(entry.command("list").description("列出远端 Markdown 条目")).action(
     (options: ReadOptions) => {
       const { filters, format } = parseReadOptions(options);
+      filterEntries([], filters);
       client.doctor();
       const entries = filterEntries(reader.listEntries(), filters);
       writeOutput(
@@ -210,6 +226,7 @@ export function createProgram(client = new GitHubContentClient()): Command {
       .argument("<query>", "字符串查询"),
   ).action((query: string, options: ReadOptions) => {
     const { filters, format } = parseReadOptions(options);
+    searchEntries([], query, filters);
     client.doctor();
     const results = searchEntries(reader.listEntries(), query, filters);
     writeOutput(

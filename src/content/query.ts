@@ -18,9 +18,35 @@ export type EntrySearchResult = {
 
 const ratingPriority: Record<Rating, number> = { 夯: 3, 人上人: 2, NPC: 1 };
 
+/**
+ * 把查询时间边界严格解析为时间戳，并正确处理日期全天语义。
+ *
+ * 为什么存在：Date.parse 会接受自然语言等非契约输入，而且 `added-before YYYY-MM-DD` 若按午夜解释会错误排除当天内容。
+ * 数据如何流动：YYYY-MM-DD 严格验证日历日期，after 映射 UTC 日初、before 映射 UTC 日末；其他输入只接受带时区的 ISO datetime。
+ * 何时失败：无效日历、自然语言、缺时区 datetime 或无法解析值返回 VALIDATION_FAILED。
+ * 如何排查：使用 YYYY-MM-DD，或包含 T 与 Z/±hh:mm 的完整 ISO 时间。
+ * 什么不能改：不能回退宽松 Date.parse，也不能让 before 日期只覆盖当天 00:00。
+ */
 function parseBoundary(value: string | undefined, field: string): number | undefined {
   if (value === undefined) return undefined;
-  const timestamp = Date.parse(value);
+  const dateOnly = /^(\d{4})-(\d{2})-(\d{2})$/u.exec(value);
+  if (dateOnly) {
+    const year = Number(dateOnly[1]);
+    const month = Number(dateOnly[2]);
+    const day = Number(dateOnly[3]);
+    const start = Date.UTC(year, month - 1, day);
+    const check = new Date(start);
+    if (
+      check.getUTCFullYear() === year &&
+      check.getUTCMonth() === month - 1 &&
+      check.getUTCDate() === day
+    ) {
+      return field === "added_before" ? start + 86_400_000 - 1 : start;
+    }
+  }
+  const isoWithTimezone =
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:\d{2})$/u;
+  const timestamp = isoWithTimezone.test(value) ? Date.parse(value) : Number.NaN;
   if (Number.isNaN(timestamp)) {
     throw new AppError("VALIDATION_FAILED", `${field} 不是有效时间`, { field, value });
   }

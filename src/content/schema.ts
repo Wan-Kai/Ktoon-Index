@@ -57,21 +57,43 @@ export const createEntryInputSchema = z.object({
   personal_take: z.string().default(""),
 });
 
-export const entrySchema = z.object({
-  id: entryIdSchema,
-  title: z.string().trim().min(1),
-  summary: z.string().trim().min(1),
-  category: z.enum(CATEGORY_IDS),
-  tags: z.array(z.string()),
-  rating: z.enum(RATINGS).nullable(),
-  version: z.number().int().positive(),
-  status: z.enum(ENTRY_STATUSES),
-  addedAt: isoDateSchema,
-  updatedAt: isoDateSchema,
-  source: sourceLinkSchema.nullable(),
-  references: z.array(referenceLinkSchema),
-  personalTake: z.string(),
-});
+export const entrySchema = z
+  .object({
+    id: entryIdSchema,
+    title: z.string().trim().min(1),
+    summary: z.string().trim().min(1),
+    category: z.enum(CATEGORY_IDS),
+    tags: z.array(z.string()),
+    rating: z.enum(RATINGS).nullable(),
+    version: z.number().int().positive(),
+    status: z.enum(ENTRY_STATUSES),
+    addedAt: isoDateSchema,
+    updatedAt: isoDateSchema,
+    source: sourceLinkSchema.nullable(),
+    references: z.array(referenceLinkSchema),
+    personalTake: z.string(),
+  })
+  .superRefine((entry, context) => {
+    try {
+      const normalized = normalizeTags(entry.tags);
+      if (
+        normalized.length !== entry.tags.length ||
+        normalized.some((tag, index) => tag !== entry.tags[index])
+      ) {
+        context.addIssue({
+          code: "custom",
+          path: ["tags"],
+          message: "事实源标签必须已经规范化且不能重复",
+        });
+      }
+    } catch (error) {
+      context.addIssue({
+        code: "custom",
+        path: ["tags"],
+        message: error instanceof Error ? error.message : "事实源标签不合法",
+      });
+    }
+  });
 
 export type CreateEntryInput = z.infer<typeof createEntryInputSchema>;
 export type Entry = z.infer<typeof entrySchema>;
