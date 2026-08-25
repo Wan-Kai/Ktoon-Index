@@ -2,6 +2,8 @@
 
 本路线图把已经确认的内容维护方案拆成可独立验收的阶段。实施顺序遵循一条原则：先让一个真实条目从 Markdown 完整流向现有页面，再补齐全部 CRUD、Skill 和自动发布，避免基础设施先行而迟迟没有可用闭环。
 
+当前进度：M0、M1 已完成。M1 的真实 commit、CLI 契约、兼容桥与验证证据见 [`m1-vertical-slice.md`](./m1-vertical-slice.md)。下一阶段为 M2 只读 CLI 与查询语义。
+
 ## 当前前置条件
 
 M0 启动时工作目录尚不是 Git worktree；现已创建公开仓库 `Wan-Kai/Ktoon-Index`、初始化本地 `main` 并连接 `origin`。后续 CLI/Skill 只面向该项目，不扩展为可操作任意仓库的通用工具。

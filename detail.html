@@ -3,12 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="MCP Inspector - AI Index entry." />
+    <meta name="description" content="AI Index entry." />
     <meta name="theme-color" content="#111313" />
-    <title>MCP Inspector · AI Index</title>
+    <title>AI Index Entry</title>
     <link rel="stylesheet" href="./styles.css?v=20260813-fixed-header-center-main-v23" />
     <link rel="stylesheet" href="./detail.css?v=20260816-reading-hierarchy-v13" />
-    <script src="./app.js?v=20260814-detail-v1" defer></script>
+    <script src="./app.js?v=20260825-m1-data-v1" defer></script>
   </head>
   <body class="detail-body"><!--
       设计主张：详情页是一份从档案盒中抽出的完整纸质记录，不是博客文章或属性面板。
@@ -67,18 +67,18 @@
               <span class="dossier__back-mark" aria-hidden="true">←</span>
               <span data-i18n="backToCategory">返回工具箱</span>
             </a>
-            <span aria-hidden="true">AI INDEX / PERSONAL FILE 001</span>
-            <time datetime="2026-08-08">AUG. 08, 2026</time>
+            <span id="detail-folio-code" aria-hidden="true"></span>
+            <time id="detail-folio-date"></time>
           </div>
 
           <header class="dossier__header">
             <div class="dossier__headline">
-              <h1 id="entry-title">MCP Inspector</h1>
-              <p>A focused workbench for testing MCP servers, tools, resources, and prompts.</p>
+              <h1 id="entry-title"></h1>
+              <p id="entry-summary"></p>
             </div>
 
-            <div class="verdict-stamp" aria-label="评分：夯" data-i18n-aria="ratingAria">
-              <strong>夯</strong>
+            <div class="verdict-stamp" id="entry-rating">
+              <strong></strong>
             </div>
           </header>
 
@@ -86,23 +86,23 @@
             <dl class="metadata-list">
               <div>
                 <dt data-i18n="archiveId">档案编号</dt>
-                <dd>AI-IX / TOOLKIT / 001</dd>
+                <dd id="entry-archive-code"></dd>
               </div>
               <div>
                 <dt data-i18n="categoryLabel">分类</dt>
-                <dd><a href="./?category=toolkit" data-i18n="toolkitLabel">工具箱</a> · <a href="./?category=standards" data-i18n="standardsLabel">标准</a></dd>
+                <dd id="entry-category"></dd>
               </div>
               <div>
                 <dt data-i18n="tagsLabel">标签</dt>
-                <dd>MCP · DEBUGGING · AGENT TOOLING</dd>
+                <dd id="entry-tags"></dd>
               </div>
               <div>
                 <dt data-i18n="addedAtLabel">录入时间</dt>
-                <dd><time datetime="2026-08-08">2026.08.08</time></dd>
+                <dd><time id="entry-added-at"></time></dd>
               </div>
               <div>
                 <dt data-i18n="linkCountLabel">链接数量</dt>
-                <dd>04 <span data-i18n="referencesUnit">个资料链接</span></dd>
+                <dd><span id="entry-link-count"></span> <span data-i18n="referencesUnit">个资料链接</span></dd>
               </div>
             </dl>
           </aside>
@@ -112,47 +112,19 @@
               <h2 data-i18n="myTake">我的判断</h2>
               <span aria-hidden="true">EDITORIAL NOTE / OWNER'S VIEW</span>
             </div>
-            <div class="personal-note">
-              <p>调试 MCP Server 时非常实用。Tools、Resources 和 Prompts 的调用过程都能直接检查，比在宿主应用中反复猜测问题快很多。</p>
-              <p>它最适合开发和联调阶段使用，不是面向普通用户的 MCP 客户端。只要开始自己写 MCP Server，就值得放进常用工具箱。</p>
-            </div>
+            <div class="personal-note" id="entry-personal-take"></div>
 
-            <a class="primary-source" href="https://github.com/modelcontextprotocol/inspector">
+            <a class="primary-source" id="entry-primary-source" href="#">
               <span>
                 <small aria-hidden="true">PRIMARY SOURCE</small>
-                <strong data-i18n="primaryAction">打开 MCP Inspector</strong>
+                <strong></strong>
               </span>
               <span class="link-arrow" aria-hidden="true">↗</span>
             </a>
 
             <section class="references" aria-labelledby="references-title">
               <h2 id="references-title" data-i18n="relatedLinks">相关资料</h2>
-              <ul>
-                <li>
-                  <a href="https://github.com/modelcontextprotocol/inspector#readme">
-                    <b aria-hidden="true">01</b>
-                    <span><strong>README</strong><small>安装、启动与使用说明</small></span>
-                    <code>github.com</code>
-                    <span class="link-arrow" aria-hidden="true">↗</span>
-                  </a>
-                </li>
-                <li>
-                  <a href="https://github.com/modelcontextprotocol/inspector/releases">
-                    <b aria-hidden="true">02</b>
-                    <span><strong>Releases</strong><small>版本发布与变更记录</small></span>
-                    <code>github.com</code>
-                    <span class="link-arrow" aria-hidden="true">↗</span>
-                  </a>
-                </li>
-                <li>
-                  <a href="https://github.com/modelcontextprotocol/inspector/issues">
-                    <b aria-hidden="true">03</b>
-                    <span><strong>Issues</strong><small>问题追踪与使用讨论</small></span>
-                    <code>github.com</code>
-                    <span class="link-arrow" aria-hidden="true">↗</span>
-                  </a>
-                </li>
-              </ul>
+              <ul id="entry-references"></ul>
             </section>
           </section>
         </article>

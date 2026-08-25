@@ -1,0 +1,44 @@
+{
+  "id": "mcp-inspector",
+  "title": "MCP Inspector",
+  "summary": "A focused workbench for testing MCP servers, tools, resources, and prompts.",
+  "category": "toolkit",
+  "categoryLabel": "Toolkit",
+  "categoryLabelZh": "工具箱",
+  "archiveCode": "AI-IX / TOOLKIT / 001",
+  "folioNumber": "001",
+  "tags": [
+    "mcp",
+    "debugging",
+    "agent-tooling"
+  ],
+  "rating": "夯",
+  "addedAt": "2026-08-25T03:13:13.992Z",
+  "updatedAt": "2026-08-25T03:13:13.992Z",
+  "personalTakeHtml": "<p>调试 <strong>MCP Server</strong> 时非常实用。<code>Tools</code>、<code>Resources</code> 和 <code>Prompts</code> 的调用过程都能直接检查，比在宿主应用中反复猜测问题快很多。</p>\n<p>它最适合开发和联调阶段使用，不是面向普通用户的 MCP 客户端。只要开始自己写 MCP Server，就值得放进常用工具箱。</p>",
+  "source": {
+    "title": "MCP Inspector",
+    "url": "https://github.com/modelcontextprotocol/inspector",
+    "domain": "github.com"
+  },
+  "references": [
+    {
+      "title": "README",
+      "url": "https://github.com/modelcontextprotocol/inspector#readme",
+      "description": "安装、启动与使用说明",
+      "domain": "github.com"
+    },
+    {
+      "title": "Releases",
+      "url": "https://github.com/modelcontextprotocol/inspector/releases",
+      "description": "版本发布与变更记录",
+      "domain": "github.com"
+    },
+    {
+      "title": "Issues",
+      "url": "https://github.com/modelcontextprotocol/inspector/issues",
+      "description": "问题追踪与使用讨论",
+      "domain": "github.com"
+    }
+  ]
+}

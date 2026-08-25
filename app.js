@@ -1,17 +1,9 @@
-const categories = [
+let categories = [
   {
     id: "toolkit",
     label: "Toolkit",
     labelZh: "工具箱",
     entries: [
-      {
-        id: "mcp-inspector",
-        rating: "夯",
-        addedAt: "2026-08-08T10:00:00Z",
-        title: "MCP Inspector",
-        description: "A focused workbench for testing MCP servers, tools, resources, and prompts.",
-        url: "./detail.html?id=mcp-inspector",
-      },
       {
         id: "context7",
         rating: "人上人",
@@ -223,7 +215,6 @@ const translations = {
     tagsLabel: "标签",
     addedAtLabel: "录入时间",
     linkCountLabel: "链接数量",
-    primaryAction: "打开 MCP Inspector",
     topRated: "最高评级",
     referencesUnit: "个资料链接",
     toolkitLabel: "工具箱",
@@ -257,7 +248,6 @@ const translations = {
     tagsLabel: "Tags",
     addedAtLabel: "Added",
     linkCountLabel: "Links",
-    primaryAction: "Open MCP Inspector",
     topRated: "Top rated",
     referencesUnit: "references",
     toolkitLabel: "Toolkit",
@@ -272,6 +262,7 @@ const state = {
   query: "",
   showAllSearchResults: false,
 };
+let currentDetailEntry = null;
 
 const categoryStack = document.querySelector("#category-stack");
 const searchForm = document.querySelector("#search-form");
@@ -327,6 +318,145 @@ function safeHref(value) {
   }
 
   return "#main-content";
+}
+
+/**
+ * 从内容构建产物加载首页读模型。
+ *
+ * 为什么存在：M1 起页面不能继续把 MCP Inspector 写死在脚本里，首页与搜索必须消费 Markdown 投影出的公开 JSON。
+ * 数据如何流动：请求 data/index.json，验证五分类数组后替换过渡数据；后续 renderCategories 与搜索只读取 categories。
+ * 何时失败：网络、JSON 或结构异常会抛错并在初始化入口显示失败，避免悄悄展示过期样例。
+ * 如何排查：先访问 ./data/index.json，再运行 npm run build:content 检查生成日志。
+ * 什么不能改：不能在 fetch 失败时重新注入 MCP Inspector 常量；那会恢复重复事实源。
+ */
+async function loadGeneratedIndex() {
+  const response = await fetch("./data/index.json", { cache: "no-store" });
+  if (!response.ok) throw new Error(`index data returned ${response.status}`);
+  const payload = await response.json();
+  if (!payload || !Array.isArray(payload.categories) || payload.categories.length !== 5) {
+    throw new Error("index data has invalid categories");
+  }
+  categories = payload.categories;
+}
+
+/**
+ * 按 URL 中不可变 ID 加载详情读模型。
+ *
+ * 为什么存在：通用 detail.html 不能保留 MCP Inspector 的标题、判断和链接副本，每个字段都必须来自对应公开 JSON。
+ * 数据如何流动：查询参数只接受 kebab-case ID，随后 fetch data/entries/<id>.json 并保存到 currentDetailEntry。
+ * 何时失败：ID 缺失、格式异常、条目回收或文件不存在时抛错，详情页不会渲染伪造路径。
+ * 如何排查：检查地址栏 id、data/entries 文件和 GitHub Actions 内容构建日志。
+ * 什么不能改：不能允许路径分隔符、相对路径或用标题猜测文件名。
+ */
+async function loadGeneratedDetail() {
+  if (!document.body.classList.contains("detail-body")) return;
+  const id = new URLSearchParams(window.location.search).get("id") ?? "";
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/i.test(id)) throw new Error("invalid detail id");
+  const response = await fetch(`./data/entries/${encodeURIComponent(id)}.json`, {
+    cache: "no-store",
+  });
+  if (!response.ok) throw new Error(`detail data returned ${response.status}`);
+  currentDetailEntry = await response.json();
+}
+
+function formatEditorialDate(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const months = [
+    "JAN.",
+    "FEB.",
+    "MAR.",
+    "APR.",
+    "MAY",
+    "JUN.",
+    "JUL.",
+    "AUG.",
+    "SEP.",
+    "OCT.",
+    "NOV.",
+    "DEC.",
+  ];
+  return `${months[date.getUTCMonth()]} ${String(date.getUTCDate()).padStart(2, "0")}, ${date.getUTCFullYear()}`;
+}
+
+/**
+ * 把单条公开 JSON 填入既有报纸档案结构，不重建视觉 DOM。
+ *
+ * 为什么存在：详情视觉已经冻结，只应替换内容节点；整页模板重绘会让纸张、盒沿和响应式结构产生无关回归。
+ * 数据如何流动：currentDetailEntry 的文本通过 textContent，链接通过 safeHref，唯一 HTML 字段使用构建期白名单 Markdown 产物。
+ * 何时失败：必要节点缺失时保持空白并由浏览器检查暴露；初始化捕获数据加载失败并给出控制台错误。
+ * 如何排查：对照 data/entries/<id>.json 检查节点 ID，不要在 HTML 中补写内容常量。
+ * 什么不能改：personalTakeHtml 只能来自内容构建器；不能把任意 API HTML 直接放入 innerHTML。
+ */
+function renderDetailEntry() {
+  if (!currentDetailEntry) return;
+  const entry = currentDetailEntry;
+  const categoryLabel = state.language === "zh" ? entry.categoryLabelZh : entry.categoryLabel;
+  const addedDate = new Date(entry.addedAt);
+  const compactDate = Number.isNaN(addedDate.getTime())
+    ? ""
+    : addedDate.toISOString().slice(0, 10).replaceAll("-", ".");
+
+  document.title = `${entry.title} · AI Index`;
+  const description = document.querySelector('meta[name="description"]');
+  description?.setAttribute("content", `${entry.title} - AI Index entry.`);
+  document.querySelector("#entry-title").textContent = entry.title;
+  document.querySelector("#entry-summary").textContent = entry.summary;
+  document.querySelector("#detail-folio-code").textContent = `AI INDEX / PERSONAL FILE ${entry.folioNumber}`;
+  const folioDate = document.querySelector("#detail-folio-date");
+  folioDate.textContent = formatEditorialDate(entry.addedAt);
+  folioDate.setAttribute("datetime", entry.addedAt.slice(0, 10));
+  document.querySelector("#entry-archive-code").textContent = entry.archiveCode;
+  document.querySelector("#entry-tags").textContent = entry.tags.join(" · ").toLocaleUpperCase();
+  const addedAt = document.querySelector("#entry-added-at");
+  addedAt.textContent = compactDate;
+  addedAt.setAttribute("datetime", entry.addedAt.slice(0, 10));
+  document.querySelector("#entry-link-count").textContent = String(
+    entry.references.length + (entry.source ? 1 : 0),
+  ).padStart(2, "0");
+
+  const category = document.querySelector("#entry-category");
+  category.innerHTML = `<a href="./?category=${escapeHtml(entry.category)}">${escapeHtml(categoryLabel)}</a>`;
+  const back = document.querySelector(".dossier__back");
+  back.setAttribute("href", `./?category=${encodeURIComponent(entry.category)}`);
+
+  const rating = document.querySelector("#entry-rating");
+  rating.hidden = !entry.rating;
+  rating.querySelector("strong").textContent = entry.rating ?? "";
+  rating.setAttribute(
+    "aria-label",
+    `${state.language === "zh" ? "评分" : "Rating"}：${entry.rating ?? translations[state.language].unrated}`,
+  );
+
+  const personalTake = document.querySelector("#entry-personal-take");
+  personalTake.innerHTML = entry.personalTakeHtml;
+  document.querySelector(".editorial-heading").hidden = !entry.personalTakeHtml;
+  personalTake.hidden = !entry.personalTakeHtml;
+
+  const source = document.querySelector("#entry-primary-source");
+  source.hidden = !entry.source;
+  if (entry.source) {
+    source.setAttribute("href", safeHref(entry.source.url));
+    source.querySelector("strong").textContent =
+      state.language === "zh" ? `打开 ${entry.source.title}` : `Open ${entry.source.title}`;
+  }
+
+  const references = document.querySelector("#entry-references");
+  references.innerHTML = entry.references
+    .map(
+      (reference, index) => `
+        <li>
+          <a href="${escapeHtml(safeHref(reference.url))}">
+            <b aria-hidden="true">${String(index + 1).padStart(2, "0")}</b>
+            <span><strong>${escapeHtml(reference.title)}</strong><small>${escapeHtml(reference.description ?? "")}</small></span>
+            <code>${escapeHtml(reference.domain)}</code>
+            <span class="link-arrow" aria-hidden="true">↗</span>
+          </a>
+        </li>
+      `,
+    )
+    .join("");
+  document.querySelector(".references").hidden = entry.references.length === 0;
 }
 
 /**
@@ -550,6 +680,7 @@ function applyLanguage() {
 
   renderCategories();
   renderSearchResults();
+  renderDetailEntry();
 }
 
 searchInput?.addEventListener("input", (event) => {
@@ -601,4 +732,28 @@ document.addEventListener("click", (event) => {
   }
 });
 
-applyLanguage();
+/**
+ * 在首次渲染前同时取得首页和可选详情数据。
+ *
+ * 为什么存在：如果先渲染空壳再异步替换，会出现错误计数、搜索遗漏和详情硬编码闪烁。
+ * 数据如何流动：首页读模型始终加载；详情页额外加载当前 ID，全部成功后统一应用语言并渲染。
+ * 何时失败：任一公开 JSON 不可用时记录错误，并在详情标题或首页分类区显示明确失败文案。
+ * 如何排查：直接访问对应 JSON，随后运行内容构建与 Vite 服务；浏览器控制台保留原始异常。
+ * 什么不能改：不能用 app.js 中的 MCP Inspector 常量兜底，那会破坏 Markdown 唯一事实源。
+ */
+async function initializeApplication() {
+  try {
+    await Promise.all([loadGeneratedIndex(), loadGeneratedDetail()]);
+    applyLanguage();
+  } catch (error) {
+    console.error("AI Index data initialization failed", error);
+    if (document.body.classList.contains("detail-body")) {
+      const title = document.querySelector("#entry-title");
+      if (title) title.textContent = state.language === "zh" ? "条目加载失败" : "Entry unavailable";
+    } else if (categoryStack) {
+      categoryStack.innerHTML = `<p>${escapeHtml(state.language === "zh" ? "内容加载失败。" : "Content unavailable.")}</p>`;
+    }
+  }
+}
+
+void initializeApplication();
