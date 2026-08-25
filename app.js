@@ -364,8 +364,12 @@ function selectTopEntries(entries) {
       const ratingDelta = priority[right.rating] - priority[left.rating];
       if (ratingDelta !== 0) return ratingDelta;
 
-      const rightTime = Number.isNaN(Date.parse(right.addedAt)) ? 0 : Date.parse(right.addedAt);
-      const leftTime = Number.isNaN(Date.parse(left.addedAt)) ? 0 : Date.parse(left.addedAt);
+      const rightTime = Number.isNaN(Date.parse(right.addedAt))
+        ? Number.NEGATIVE_INFINITY
+        : Date.parse(right.addedAt);
+      const leftTime = Number.isNaN(Date.parse(left.addedAt))
+        ? Number.NEGATIVE_INFINITY
+        : Date.parse(left.addedAt);
       return rightTime - leftTime;
     })
     .slice(0, 3);
@@ -397,8 +401,10 @@ function filterCategoryEntries(entries) {
     return filtered.sort((left, right) => {
       const rightTime = Date.parse(right.addedAt);
       const leftTime = Date.parse(left.addedAt);
-      return (Number.isNaN(rightTime) ? 0 : rightTime) -
-        (Number.isNaN(leftTime) ? 0 : leftTime);
+      return (
+        (Number.isNaN(rightTime) ? Number.NEGATIVE_INFINITY : rightTime) -
+        (Number.isNaN(leftTime) ? Number.NEGATIVE_INFINITY : leftTime)
+      );
     });
   }
   const priority = { 夯: 3, 人上人: 2, NPC: 1 };
@@ -408,7 +414,8 @@ function filterCategoryEntries(entries) {
     const leftTime = Date.parse(left.addedAt);
     return (
       ratingDelta ||
-      (Number.isNaN(rightTime) ? 0 : rightTime) - (Number.isNaN(leftTime) ? 0 : leftTime)
+      (Number.isNaN(rightTime) ? Number.NEGATIVE_INFINITY : rightTime) -
+        (Number.isNaN(leftTime) ? Number.NEGATIVE_INFINITY : leftTime)
     );
   });
 }
