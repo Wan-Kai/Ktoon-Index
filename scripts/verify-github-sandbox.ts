@@ -124,9 +124,25 @@ function githubJson(args: string[], operation: string, input?: JsonRecord): unkn
  */
 export function sandboxRunner(branch: string, runGh: GhRunner = defaultGhRunner): GhRunner {
   return (args, input) => {
+    const isAuthProbe = args.length === 2 && args[0] === "auth" && args[1] === "status";
+    const isRepositoryProbe =
+      args[0] === "api" && args[1] === repositoryEndpoint && args.includes("--jq") && !input;
+    if (isAuthProbe || isRepositoryProbe) return runGh(args, input);
+
     const methodIndex = args.indexOf("--method");
     const method = methodIndex >= 0 ? args[methodIndex + 1] : undefined;
     const endpoint = args.find((argument) => argument.startsWith(`${repositoryEndpoint}/`));
+    if (
+      args.includes("-X") ||
+      !method ||
+      !["GET", "PUT"].includes(method) ||
+      !endpoint ||
+      (input !== undefined && method !== "PUT")
+    ) {
+      throw new AppError("VALIDATION_FAILED", "sandbox 拒绝未列入白名单的 gh 请求形状", {
+        branch,
+      });
+    }
     const mappedArgs = args.map((argument) => {
       if (argument === `ref=${GITHUB_BRANCH}`) return `ref=${branch}`;
       if (argument === `sha=${GITHUB_BRANCH}`) return `sha=${branch}`;
@@ -136,37 +152,34 @@ export function sandboxRunner(branch: string, runGh: GhRunner = defaultGhRunner)
       return argument;
     });
     let mappedInput = input;
+    let payload: JsonRecord | undefined;
     if (input) {
       try {
-        const payload = JSON.parse(input) as JsonRecord;
-        if ("branch" in payload && payload.branch !== GITHUB_BRANCH) {
-          throw new AppError("VALIDATION_FAILED", "sandbox 请求包含非 main 的意外分支", {
-            branch,
-          });
-        }
-        mappedInput = JSON.stringify({
-          ...payload,
-          ...(payload.branch === GITHUB_BRANCH ? { branch } : {}),
-        });
+        payload = JSON.parse(input) as JsonRecord;
       } catch (error) {
         throw new AppError("VALIDATION_FAILED", "sandbox 请求 JSON 损坏", {
           reason: error instanceof Error ? error.message : String(error),
         });
       }
+      if ("branch" in payload && payload.branch !== GITHUB_BRANCH) {
+        throw new AppError("VALIDATION_FAILED", "sandbox 请求包含非 main 的意外分支", {
+          branch,
+        });
+      }
+      payload = {
+        ...payload,
+        ...(payload.branch === GITHUB_BRANCH ? { branch } : {}),
+      };
+      mappedInput = JSON.stringify(payload);
     }
 
-    const mappedPayload = mappedInput ? (JSON.parse(mappedInput) as JsonRecord) : undefined;
     const isContentRequest = endpoint?.includes("/contents/") === true;
     if (method === "PUT") {
-      if (!isContentRequest || mappedPayload?.branch !== branch) {
+      if (!isContentRequest || payload?.branch !== branch) {
         throw new AppError("VALIDATION_FAILED", "sandbox 拒绝未明确指向临时分支的写请求", {
           branch,
         });
       }
-    } else if (["POST", "PATCH", "DELETE"].includes(method ?? "")) {
-      throw new AppError("VALIDATION_FAILED", "sandbox 拒绝内容客户端的意外写请求", {
-        branch,
-      });
     }
     if (
       isContentRequest &&
@@ -182,6 +195,14 @@ export function sandboxRunner(branch: string, runGh: GhRunner = defaultGhRunner)
     if (endpoint?.endsWith("/commits") && !mappedArgs.includes(`sha=${branch}`)) {
       throw new AppError("VALIDATION_FAILED", "sandbox 历史读取缺少临时分支 sha", { branch });
     }
+    const isAllowedGet =
+      isContentRequest ||
+      endpoint === `${repositoryEndpoint}/commits` ||
+      new RegExp(`^${repositoryEndpoint}/commits/[a-f0-9]{40}$`, "u").test(endpoint) ||
+      endpoint === `${repositoryEndpoint}/git/trees/${GITHUB_BRANCH}`;
+    if (method === "GET" && !isAllowedGet) {
+      throw new AppError("VALIDATION_FAILED", "sandbox 拒绝未列入白名单的读取请求", { branch });
+    }
     if (
       mappedArgs.includes(`ref=${GITHUB_BRANCH}`) ||
       mappedArgs.includes(`sha=${GITHUB_BRANCH}`) ||
@@ -191,6 +212,94 @@ export function sandboxRunner(branch: string, runGh: GhRunner = defaultGhRunner)
     }
     return runGh(mappedArgs, mappedInput);
   };
+}
+
+export type SandboxBranchOwnership = "none" | "owned" | "uncertain";
+
+export type SandboxBranchAttempt =
+  { ownership: "owned" } | { ownership: "none" | "uncertain"; error: AppError };
+
+/**
+ * 以先查后建的方式确定一次性分支的所有权。
+ *
+ * 触发条件：真实 sandbox 即将创建唯一远端 ref。处理方式：先确认 ref 不存在，再 POST；成功且响应 ref 匹配时标记 owned，明确 422 冲突标记 none，网络/损坏响应标记 uncertain。外部根据 ownership 决定是否清理。所有权不变量：明确存在或明确冲突的分支绝不能被本次运行删除；只有已确认由本次创建或创建结果不确定的唯一 ref 可进入清理。
+ */
+export function attemptSandboxBranchCreation(
+  branch: string,
+  sha: string,
+  runGh: GhRunner = defaultGhRunner,
+): SandboxBranchAttempt {
+  const endpoint = `${repositoryEndpoint}/git/ref/heads/${branch}`;
+  const existing = runGh(["api", "--method", "GET", endpoint]);
+  if (existing.status === 0) {
+    return {
+      ownership: "none",
+      error: new AppError("GITHUB_ERROR", "sandbox 分支名已存在，拒绝删除或复用", { branch }),
+    };
+  }
+  if (!/HTTP 404|not found/iu.test(existing.stderr)) {
+    return {
+      ownership: "none",
+      error: new AppError("GITHUB_ERROR", "无法确认 sandbox 分支不存在", {
+        branch,
+        diagnostic: classifyGhStderr(existing.stderr),
+        exit_status: existing.status,
+      }),
+    };
+  }
+
+  const created = runGh(
+    ["api", "--method", "POST", `${repositoryEndpoint}/git/refs`, "--input", "-"],
+    JSON.stringify({ ref: `refs/heads/${branch}`, sha }),
+  );
+  if (created.status !== 0) {
+    const explicitConflict = /HTTP 422|already exists|reference already exists/iu.test(
+      created.stderr,
+    );
+    return {
+      ownership: explicitConflict ? "none" : "uncertain",
+      error: new AppError("GITHUB_ERROR", "创建 sandbox 分支失败", {
+        branch,
+        diagnostic: classifyGhStderr(created.stderr),
+        exit_status: created.status,
+      }),
+    };
+  }
+  try {
+    const response = requireRecord(JSON.parse(created.stdout) as unknown, "创建 sandbox 分支");
+    if (response.ref !== `refs/heads/${branch}`) throw new Error("ref mismatch");
+  } catch {
+    return {
+      ownership: "uncertain",
+      error: new AppError("GITHUB_ERROR", "创建 sandbox 分支响应异常", { branch }),
+    };
+  }
+  return { ownership: "owned" };
+}
+
+/**
+ * 只清理由本次运行拥有或结果不确定的一次性分支。
+ *
+ * 触发条件：主验证结束且 ownership 不是 none。处理方式：DELETE 唯一 ref；成功或 404 均视为已清理，其他失败返回脱敏 AppError 供主流程合并。失败后的外部表现包含分支、退出码和诊断类别。所有权不变量：none 永不发 DELETE，避免碰撞时删除既有分支。
+ */
+export function cleanupSandboxBranch(
+  branch: string,
+  ownership: SandboxBranchOwnership,
+  runGh: GhRunner = defaultGhRunner,
+): AppError | undefined {
+  if (ownership === "none") return undefined;
+  const result = runGh([
+    "api",
+    "--method",
+    "DELETE",
+    `${repositoryEndpoint}/git/refs/heads/${branch}`,
+  ]);
+  if (result.status === 0 || /HTTP 404|not found/iu.test(result.stderr)) return undefined;
+  return new AppError("GITHUB_ERROR", "sandbox 分支清理失败", {
+    branch,
+    diagnostic: classifyGhStderr(result.stderr),
+    exit_status: result.status,
+  });
 }
 
 function requireRecord(value: unknown, operation: string): JsonRecord {
@@ -206,9 +315,9 @@ function requireRecord(value: unknown, operation: string): JsonRecord {
  * 为什么存在：内存 adapter 不能证明当前 gh 身份与 GitHub Contents/Commits API 的真实语义。脚本从 main 创建唯一分支，用生产客户端 create/update/retry/stale-write，再读取 commit 证据；创建请求发出后无论响应是否确定都探测删除远端 ref。任一步失败输出稳定且脱敏的错误；验证与清理同时失败时保留主错误并附加分支清理诊断。不能改成 main、跳过清理或用本地 Git 模拟远端 CAS。
  */
 async function verifyGitHubSandbox(): Promise<JsonRecord> {
-  const suffix = randomUUID().slice(0, 8);
+  const suffix = randomUUID();
   const branch = `m7-sandbox-${suffix}`;
-  let branchCreationAttempted = false;
+  let branchOwnership: SandboxBranchOwnership = "none";
   let cleanupError: AppError | undefined;
   let primaryError: unknown;
   let outcome: JsonRecord | undefined;
@@ -225,12 +334,9 @@ async function verifyGitHubSandbox(): Promise<JsonRecord> {
     if (typeof object.sha !== "string" || !/^[a-f0-9]{40}$/u.test(object.sha)) {
       throw new AppError("GITHUB_ERROR", "main ref 缺少合法 commit SHA");
     }
-    branchCreationAttempted = true;
-    githubJson(
-      ["api", "--method", "POST", `${repositoryEndpoint}/git/refs`, "--input", "-"],
-      "创建 sandbox 分支",
-      { ref: `refs/heads/${branch}`, sha: object.sha },
-    );
+    const branchAttempt = attemptSandboxBranchCreation(branch, object.sha);
+    branchOwnership = branchAttempt.ownership;
+    if ("error" in branchAttempt) throw branchAttempt.error;
     const client = new GitHubContentClient(sandboxRunner(branch));
     const id = `m7-sandbox-${suffix}`;
     const createdEntry = createEntry({
@@ -375,21 +481,7 @@ async function verifyGitHubSandbox(): Promise<JsonRecord> {
     primaryError = error;
   }
 
-  if (branchCreationAttempted) {
-    const result = defaultGhRunner([
-      "api",
-      "--method",
-      "DELETE",
-      `${repositoryEndpoint}/git/refs/heads/${branch}`,
-    ]);
-    if (result.status !== 0 && !/HTTP 404|not found/iu.test(result.stderr)) {
-      cleanupError = new AppError("GITHUB_ERROR", "sandbox 分支清理失败", {
-        branch,
-        diagnostic: classifyGhStderr(result.stderr),
-        exit_status: result.status,
-      });
-    }
-  }
+  cleanupError = cleanupSandboxBranch(branch, branchOwnership);
 
   if (primaryError) {
     if (cleanupError) {

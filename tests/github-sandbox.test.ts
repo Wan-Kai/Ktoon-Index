@@ -2,7 +2,9 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   attachCleanupError,
+  attemptSandboxBranchCreation,
   classifyGhStderr,
+  cleanupSandboxBranch,
   sandboxRunner,
   sanitizeFailureDetails,
 } from "../scripts/verify-github-sandbox.ts";
@@ -65,7 +67,58 @@ describe("M7 GitHub sandbox 安全边界", () => {
     expect(() =>
       run(["api", "--method", "DELETE", "repos/Wan-Kai/Ktoon-Index/git/refs/heads/main"]),
     ).toThrowError(expect.objectContaining({ code: "VALIDATION_FAILED" }));
+    expect(() => run(["api", contentEndpoint, "--input", "-"], "{}")).toThrowError(
+      expect.objectContaining({ message: "sandbox 拒绝未列入白名单的 gh 请求形状" }),
+    );
+    expect(() =>
+      run(
+        ["api", "--method", "PUT", contentEndpoint, "--input", "-"],
+        JSON.stringify({ branch: "feature" }),
+      ),
+    ).toThrowError(expect.objectContaining({ message: "sandbox 请求包含非 main 的意外分支" }));
     expect(base).not.toHaveBeenCalled();
+  });
+
+  it("区分确认创建、明确冲突和结果不确定，并只清理拥有或不确定的 ref", () => {
+    const sha = "a".repeat(40);
+    const notFound = { status: 1, stdout: "", stderr: "HTTP 404: Not Found" };
+    const successRunner: GhRunner = vi
+      .fn()
+      .mockReturnValueOnce(notFound)
+      .mockReturnValueOnce({
+        status: 0,
+        stdout: JSON.stringify({ ref: "refs/heads/m7-sandbox-owned" }),
+        stderr: "",
+      });
+    expect(attemptSandboxBranchCreation("m7-sandbox-owned", sha, successRunner)).toEqual({
+      ownership: "owned",
+    });
+
+    const conflictRunner: GhRunner = vi
+      .fn()
+      .mockReturnValueOnce(notFound)
+      .mockReturnValueOnce({ status: 1, stdout: "", stderr: "HTTP 422: Reference already exists" });
+    const conflict = attemptSandboxBranchCreation("m7-sandbox-conflict", sha, conflictRunner);
+    expect(conflict).toMatchObject({ ownership: "none", error: { code: "GITHUB_ERROR" } });
+    const forbiddenDelete: GhRunner = vi.fn(() => {
+      throw new Error("none 所有权不应删除分支");
+    });
+    expect(
+      cleanupSandboxBranch("m7-sandbox-conflict", conflict.ownership, forbiddenDelete),
+    ).toBeUndefined();
+    expect(forbiddenDelete).not.toHaveBeenCalled();
+
+    const uncertainRunner: GhRunner = vi
+      .fn()
+      .mockReturnValueOnce(notFound)
+      .mockReturnValueOnce({ status: 1, stdout: "", stderr: "network timeout" });
+    const uncertain = attemptSandboxBranchCreation("m7-sandbox-uncertain", sha, uncertainRunner);
+    expect(uncertain).toMatchObject({ ownership: "uncertain", error: { code: "GITHUB_ERROR" } });
+    const cleanup404: GhRunner = vi.fn(() => notFound);
+    expect(
+      cleanupSandboxBranch("m7-sandbox-uncertain", uncertain.ownership, cleanup404),
+    ).toBeUndefined();
+    expect(cleanup404).toHaveBeenCalledOnce();
   });
 
   it("清理失败不会覆盖原始验证错误", async () => {
