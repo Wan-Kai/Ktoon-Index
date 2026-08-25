@@ -2,7 +2,7 @@
 
 ## 仓库
 
-- GitHub repository：`Wan-Kai/Ktoon`
+- GitHub repository：`Wan-Kai/Ktoon-Index`
 - Visibility：public
 - Default branch：`main`
 - Git protocol：HTTPS through existing `gh auth`

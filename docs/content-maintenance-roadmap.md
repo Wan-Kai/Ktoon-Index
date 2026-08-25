@@ -4,7 +4,7 @@
 
 ## 当前前置条件
 
-M0 启动时工作目录尚不是 Git worktree；现已创建公开仓库 `Wan-Kai/Ktoon`、初始化本地 `main` 并连接 `origin`。后续 CLI/Skill 只面向该项目，不扩展为可操作任意仓库的通用工具。
+M0 启动时工作目录尚不是 Git worktree；现已创建公开仓库 `Wan-Kai/Ktoon-Index`、初始化本地 `main` 并连接 `origin`。后续 CLI/Skill 只面向该项目，不扩展为可操作任意仓库的通用工具。
 
 ## 完成定义
 
