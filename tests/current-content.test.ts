@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import categories from "./fixtures/current-content.json";
 
-describe("M1 未迁移内容兼容基线", () => {
+describe("M0 首页内容视觉基线（不参与 M4 运行时）", () => {
   it("固定五个分类并让点子位于最后", () => {
     expect(categories.map((category) => category.id)).toEqual([
       "toolkit",

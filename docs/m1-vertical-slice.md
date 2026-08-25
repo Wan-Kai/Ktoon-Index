@@ -47,9 +47,9 @@ npm run ai-index -- entry get mcp-inspector
 
 公开 JSON 使用字段白名单，不包含 version、status、文件 SHA、请求 ID 或维护者信息。
 
-## M1 兼容桥
+## M1 兼容桥（已在 M4 删除）
 
-M1 只迁移 MCP Inspector。其余 19 条内容暂时从 `content/legacy-index.json` 进入 `data/index.json`；该兼容文件不含 MCP Inspector，构建器再加入 Markdown 投影，因此迁移样例只有一个事实源。M0 fixture 仅作历史测试证据，不参与运行时构建。这个兼容桥在 M4 全量迁移时整体删除。
+M1 当时只迁移 MCP Inspector，其余 19 条曾暂时从 `content/legacy-index.json` 进入读模型。M4 已把它们全部迁移为 Markdown并删除该运行时兼容文件。`tests/fixtures/current-content.json` 仅保留为 M0 历史基线证据，不参与构建或页面运行。
 
 ## 自动化
 

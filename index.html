@@ -10,7 +10,7 @@
     <meta name="theme-color" content="#111313" />
     <title>AI Index</title>
     <link rel="stylesheet" href="./styles.css?v=20260813-fixed-header-center-main-v23" />
-    <script src="./app.js?v=20260825-m1-data-v1" defer></script>
+    <script src="./app.js?v=20260825-m4-data-v3" defer></script>
   </head>
   <body><!--
       DIRECTION CONTRACT — Crate Index / Read mode / FORM seed ccfbb7c7.
@@ -83,6 +83,14 @@
     <main id="main-content">
       <div class="crate" aria-label="AI Index 分类" data-i18n-aria="indexAria">
         <div class="crate__top">
+          <div class="category-controls" id="category-controls" hidden>
+            <label class="sr-only" for="category-sort" data-i18n="sortLabel">排序</label>
+            <select id="category-sort" data-i18n-aria="sortLabel"></select>
+            <label class="sr-only" for="category-tag" data-i18n="tagFilterLabel">标签筛选</label>
+            <select id="category-tag" data-i18n-aria="tagFilterLabel"></select>
+            <label class="sr-only" for="category-time" data-i18n="timeFilterLabel">时间筛选</label>
+            <select id="category-time" data-i18n-aria="timeFilterLabel"></select>
+          </div>
           <span class="rating-legend" data-i18n="ratingLegend">评分：夯 &gt; 人上人 &gt; NPC</span>
         </div>
         <div class="sleeve-stage">

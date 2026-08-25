@@ -1,0 +1,17 @@
+{
+  "id": "tools-over-prompts",
+  "title": "Tool Boundaries Matter More Than Prompts",
+  "summary": "Mechanism is a more dependable safety layer than asking a model to behave.",
+  "category": "articles",
+  "categoryLabel": "Articles",
+  "categoryLabelZh": "文章",
+  "archiveCode": "AI-IX / ARTICLES / 002",
+  "folioNumber": "002",
+  "tags": [],
+  "rating": "人上人",
+  "addedAt": "2026-08-06T10:00:00.000Z",
+  "updatedAt": "2026-08-06T10:00:00.000Z",
+  "personalTakeHtml": "",
+  "source": null,
+  "references": []
+}

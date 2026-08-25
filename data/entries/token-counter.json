@@ -1,0 +1,17 @@
+{
+  "id": "token-counter",
+  "title": "Token Counter",
+  "summary": "Estimate token usage before sending a long context to a model.",
+  "category": "toolkit",
+  "categoryLabel": "Toolkit",
+  "categoryLabelZh": "工具箱",
+  "archiveCode": "AI-IX / TOOLKIT / 004",
+  "folioNumber": "004",
+  "tags": [],
+  "rating": null,
+  "addedAt": "2026-08-09T10:00:00.000Z",
+  "updatedAt": "2026-08-09T10:00:00.000Z",
+  "personalTakeHtml": "",
+  "source": null,
+  "references": []
+}

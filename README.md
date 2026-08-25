@@ -2,7 +2,7 @@
 
 Ktoon 的个人 AI 信息索引，用来公开整理工具、产品、文章、行业标准与点子。
 
-当前已完成 **M3 受控写入与并发保护**：MCP Inspector 由 Markdown 唯一描述，CLI 可以通过 `gh auth` 完成单条目的创建、更新、回收、恢复、读取、查询和标签枚举；所有修改使用版本与 Git blob SHA 双重校验，并支持 request ID 幂等重试。其余 19 条内容将在 M4 全量迁移。
+当前已完成 **M4 全量内容迁移与页面数据化**：20 个条目全部由 `content/entries/*.md` 唯一描述，首页、搜索、分类入口和通用详情页只读取生成 JSON；CLI 可以通过 `gh auth` 完成单条目的完整 CRUD 与查询。
 
 ## 本地运行
 
@@ -43,7 +43,8 @@ npm run build
 - [M1 首个条目纵向切片](docs/m1-vertical-slice.md)
 - [M2 只读 CLI 与查询语义](docs/m2-readonly-cli.md)
 - [M3 受控写入与并发保护](docs/m3-controlled-writes.md)
+- [M4 全量迁移与页面数据化](docs/m4-full-migration.md)
 - [产品定义](PRODUCT.md)
 - [设计规范](DESIGN.md)
 
-下一阶段 M4 将把剩余 19 条内容迁移为 Markdown，并删除页面中的 legacy 内容桥。
+下一阶段 M5 将硬化 GitHub Actions、生成产物一致性与静态资源检查。

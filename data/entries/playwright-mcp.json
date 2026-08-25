@@ -1,0 +1,21 @@
+{
+  "id": "playwright-mcp",
+  "title": "Playwright MCP",
+  "summary": "Browser automation for agents through structured, accessibility-aware actions.",
+  "category": "toolkit",
+  "categoryLabel": "Toolkit",
+  "categoryLabelZh": "工具箱",
+  "archiveCode": "AI-IX / TOOLKIT / 003",
+  "folioNumber": "003",
+  "tags": [],
+  "rating": "NPC",
+  "addedAt": "2026-08-03T10:00:00.000Z",
+  "updatedAt": "2026-08-03T10:00:00.000Z",
+  "personalTakeHtml": "",
+  "source": {
+    "title": "Playwright MCP",
+    "url": "https://github.com/microsoft/playwright-mcp",
+    "domain": "github.com"
+  },
+  "references": []
+}

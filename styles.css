@@ -446,10 +446,52 @@ input {
   left: 18px;
   display: flex;
   justify-content: flex-end;
+  gap: 12px;
+  align-items: center;
   color: #959c98;
   font-family: "IBM Plex Mono", monospace;
   font-size: var(--type-meta);
   letter-spacing: 0.04em;
+}
+
+.category-controls {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  width: 100%;
+}
+
+.category-controls select {
+  min-width: 0;
+  height: 26px;
+  padding: 0 22px 0 8px;
+  color: #c4c9c6;
+  background-color: #111313;
+  border: 1px solid rgba(231, 229, 223, 0.22);
+  border-radius: 2px;
+  font: 500 var(--type-meta) / 1 "IBM Plex Mono", monospace;
+  letter-spacing: 0.02em;
+}
+
+.category-controls select:focus-visible {
+  border-color: var(--acid);
+  outline: 1px solid var(--acid);
+  outline-offset: 1px;
+}
+
+.category-controls select:disabled {
+  color: #737a76;
+  border-color: rgba(231, 229, 223, 0.12);
+}
+
+.category-empty {
+  display: grid;
+  place-items: center;
+  min-height: 88px;
+  color: #59605d;
+  font: 400 0.8125rem / 1.4 "IBM Plex Sans Condensed", sans-serif;
+  letter-spacing: 0.02em;
+  text-align: center;
 }
 
 .sleeve-stage {
@@ -1022,6 +1064,17 @@ html[lang="zh-CN"] .sleeve h2 {
 
   .crate {
     padding: 42px 10px 28px;
+  }
+
+  .category-controls {
+    gap: 4px;
+  }
+
+  .category-controls select {
+    flex: 1 1 0;
+    padding-right: 4px;
+    padding-left: 4px;
+    font-size: 0.625rem;
   }
 
   .sleeve {

@@ -1,0 +1,21 @@
+{
+  "id": "context7",
+  "title": "Context7",
+  "summary": "Current library documentation delivered directly into an agent's working context.",
+  "category": "toolkit",
+  "categoryLabel": "Toolkit",
+  "categoryLabelZh": "工具箱",
+  "archiveCode": "AI-IX / TOOLKIT / 002",
+  "folioNumber": "002",
+  "tags": [],
+  "rating": "人上人",
+  "addedAt": "2026-08-06T10:00:00.000Z",
+  "updatedAt": "2026-08-06T10:00:00.000Z",
+  "personalTakeHtml": "",
+  "source": {
+    "title": "Context7",
+    "url": "https://context7.com/",
+    "domain": "context7.com"
+  },
+  "references": []
+}

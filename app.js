@@ -1,192 +1,6 @@
-let categories = [
-  {
-    id: "toolkit",
-    label: "Toolkit",
-    labelZh: "工具箱",
-    entries: [
-      {
-        id: "context7",
-        rating: "人上人",
-        addedAt: "2026-08-06T10:00:00Z",
-        title: "Context7",
-        description: "Current library documentation delivered directly into an agent's working context.",
-        url: "https://context7.com/",
-      },
-      {
-        id: "playwright-mcp",
-        rating: "NPC",
-        addedAt: "2026-08-03T10:00:00Z",
-        title: "Playwright MCP",
-        description: "Browser automation for agents through structured, accessibility-aware actions.",
-        url: "https://github.com/microsoft/playwright-mcp",
-      },
-      {
-        id: "token-counter",
-        rating: null,
-        addedAt: "2026-08-09T10:00:00Z",
-        title: "Token Counter",
-        description: "Estimate token usage before sending a long context to a model.",
-        url: "#toolkit-token-counter",
-      },
-    ],
-  },
-  {
-    id: "products",
-    label: "Products",
-    labelZh: "产品",
-    entries: [
-      {
-        id: "granola",
-        rating: "夯",
-        addedAt: "2026-08-08T10:00:00Z",
-        title: "Granola",
-        description: "An AI notepad that turns meetings into useful notes without a meeting bot.",
-        url: "https://www.granola.ai/",
-      },
-      {
-        id: "dia",
-        rating: "人上人",
-        addedAt: "2026-08-05T10:00:00Z",
-        title: "Dia",
-        description: "A browser that treats AI as part of the place where knowledge work happens.",
-        url: "https://www.diabrowser.com/",
-      },
-      {
-        id: "wispr-flow",
-        rating: "NPC",
-        addedAt: "2026-08-01T10:00:00Z",
-        title: "Wispr Flow",
-        description: "Fast voice dictation shaped for everyday writing across desktop applications.",
-        url: "https://wisprflow.ai/",
-      },
-      {
-        id: "raycast-ai",
-        rating: null,
-        addedAt: "2026-08-10T10:00:00Z",
-        title: "Raycast AI",
-        description: "A compact AI command surface embedded in a desktop launcher.",
-        url: "https://www.raycast.com/ai",
-      },
-    ],
-  },
-  {
-    id: "articles",
-    label: "Articles",
-    labelZh: "文章",
-    entries: [
-      {
-        id: "agent-receipts",
-        rating: "夯",
-        addedAt: "2026-08-09T10:00:00Z",
-        title: "Agent Receipts Should Be Readable",
-        description: "Action traces should help humans understand what changed and why.",
-        url: "#articles-agent-receipts",
-      },
-      {
-        id: "tools-over-prompts",
-        rating: "人上人",
-        addedAt: "2026-08-06T10:00:00Z",
-        title: "Tool Boundaries Matter More Than Prompts",
-        description: "Mechanism is a more dependable safety layer than asking a model to behave.",
-        url: "#articles-tool-boundaries",
-      },
-      {
-        id: "context-artifact",
-        rating: "NPC",
-        addedAt: "2026-08-03T10:00:00Z",
-        title: "Context Is a First-Class Artifact",
-        description: "Version, inspect, and improve context with the same care as source code.",
-        url: "#articles-context-artifact",
-      },
-      {
-        id: "when-not-to-automate",
-        rating: null,
-        addedAt: "2026-08-10T10:00:00Z",
-        title: "When Not to Automate",
-        description: "Keep a task manual when the feedback loop is more valuable than the saved time.",
-        url: "#articles-when-not-to-automate",
-      },
-    ],
-  },
-  {
-    id: "standards",
-    label: "Standards",
-    labelZh: "标准",
-    entries: [
-      {
-        id: "mcp-spec",
-        rating: "夯",
-        addedAt: "2026-08-08T10:00:00Z",
-        title: "Model Context Protocol",
-        description: "An open protocol for connecting AI applications to tools and data sources.",
-        url: "https://modelcontextprotocol.io/specification/",
-      },
-      {
-        id: "agents-md",
-        rating: "人上人",
-        addedAt: "2026-08-04T10:00:00Z",
-        title: "AGENTS.md",
-        description: "A simple convention for giving coding agents durable repository guidance.",
-        url: "https://agents.md/",
-      },
-      {
-        id: "otel-genai",
-        rating: "NPC",
-        addedAt: "2026-08-02T10:00:00Z",
-        title: "OpenTelemetry GenAI Conventions",
-        description: "Shared semantic conventions for observing models, tools, and agent systems.",
-        url: "https://opentelemetry.io/docs/specs/semconv/gen-ai/",
-      },
-      {
-        id: "json-schema",
-        rating: null,
-        addedAt: "2026-08-09T10:00:00Z",
-        title: "JSON Schema",
-        description: "A shared vocabulary for validating structured tool inputs and outputs.",
-        url: "https://json-schema.org/",
-      },
-    ],
-  },
-  {
-    id: "ideas",
-    label: "Ideas",
-    labelZh: "点子",
-    entries: [
-      {
-        id: "intent-diff",
-        rating: "夯",
-        addedAt: "2026-08-10T10:00:00Z",
-        title: "Intent Diff for Agent Actions",
-        description: "Show the gap between requested intent and executed change before it matters.",
-        url: "#ideas-intent-diff",
-      },
-      {
-        id: "personal-ai-os",
-        rating: "人上人",
-        addedAt: "2026-08-07T10:00:00Z",
-        title: "A Personal AI Command Layer",
-        description: "One narrow, inspectable layer for agents to operate a person's digital world.",
-        url: "#ideas-personal-ai-os",
-      },
-      {
-        id: "skill-market",
-        rating: "NPC",
-        addedAt: "2026-08-02T10:00:00Z",
-        title: "A Local Skill Exchange",
-        description: "Package proven agent workflows so they can travel with their operating context.",
-        url: "#ideas-skill-market",
-      },
-      {
-        id: "memory-lens",
-        rating: null,
-        addedAt: "2026-08-11T10:00:00Z",
-        title: "A Memory Lens for Agents",
-        description: "Let people inspect which past experiences shaped an agent's current plan.",
-        url: "#ideas-memory-lens",
-      },
-    ],
-  },
-];
+let categories = [];
+let allCategories = [];
+const categoryIds = ["toolkit", "products", "articles", "standards", "ideas"];
 
 const translations = {
   zh: {
@@ -221,6 +35,17 @@ const translations = {
     standardsLabel: "标准",
     entryMetadataAria: "条目元信息",
     ratingAria: "评分：夯",
+    sortLabel: "排序",
+    tagFilterLabel: "标签筛选",
+    timeFilterLabel: "时间筛选",
+    sortRating: "评分优先",
+    sortAdded: "最新录入",
+    allTags: "全部标签",
+    allTime: "全部时间",
+    last7Days: "最近 7 天",
+    last30Days: "最近 30 天",
+    lastYear: "最近一年",
+    categoryEmpty: "没有符合筛选条件的内容。",
   },
   en: {
     skipLink: "Skip to main content",
@@ -254,6 +79,17 @@ const translations = {
     standardsLabel: "Standards",
     entryMetadataAria: "Entry metadata",
     ratingAria: "Rating: 夯",
+    sortLabel: "Sort",
+    tagFilterLabel: "Filter by tag",
+    timeFilterLabel: "Filter by time",
+    sortRating: "Rating first",
+    sortAdded: "Recently added",
+    allTags: "All tags",
+    allTime: "All time",
+    last7Days: "Last 7 days",
+    last30Days: "Last 30 days",
+    lastYear: "Last year",
+    categoryEmpty: "No entries match these filters.",
   },
 };
 
@@ -261,6 +97,10 @@ const state = {
   language: "zh",
   query: "",
   showAllSearchResults: false,
+  selectedCategory: null,
+  categorySort: "rating",
+  categoryTag: "",
+  categoryTime: "all",
 };
 let currentDetailEntry = null;
 
@@ -274,6 +114,11 @@ const resultCount = document.querySelector("#result-count");
 const searchEmpty = document.querySelector("#search-empty");
 const searchMore = document.querySelector("#search-more");
 const languageSwitch = document.querySelector("#language-switch");
+const categoryControls = document.querySelector("#category-controls");
+const categorySort = document.querySelector("#category-sort");
+const categoryTag = document.querySelector("#category-tag");
+const categoryTime = document.querySelector("#category-time");
+const ratingLegend = document.querySelector(".rating-legend");
 
 /**
  * 将 Agent 可维护的文本转换为只表达文字的 HTML。
@@ -323,20 +168,33 @@ function safeHref(value) {
 /**
  * 从内容构建产物加载首页读模型。
  *
- * 为什么存在：M1 起页面不能继续把 MCP Inspector 写死在脚本里，首页与搜索必须消费 Markdown 投影出的公开 JSON。
- * 数据如何流动：请求 data/index.json，验证五分类数组后替换过渡数据；后续 renderCategories 与搜索只读取 categories。
+ * 为什么存在：M4 页面不能保留任何条目常量，首页、分类入口与搜索必须完全消费二十份 Markdown 的公开投影。
+ * 数据如何流动：请求 data/index.json，验证五个固定分类及顺序；若 URL 带合法 category 只保留该分类，后续渲染与搜索只读取 categories。
  * 何时失败：网络、JSON 或结构异常会抛错并在初始化入口显示失败，避免悄悄展示过期样例。
  * 如何排查：先访问 ./data/index.json，再运行 npm run build:content 检查生成日志。
- * 什么不能改：不能在 fetch 失败时重新注入 MCP Inspector 常量；那会恢复重复事实源。
+ * 什么不能改：不能在 fetch 失败时注入演示数据，也不能允许未知 category 静默显示全站内容。
  */
 async function loadGeneratedIndex() {
   const response = await fetch("./data/index.json", { cache: "no-store" });
   if (!response.ok) throw new Error(`index data returned ${response.status}`);
   const payload = await response.json();
-  if (!payload || !Array.isArray(payload.categories) || payload.categories.length !== 5) {
+  if (
+    !payload ||
+    !Array.isArray(payload.categories) ||
+    payload.categories.length !== categoryIds.length ||
+    payload.categories.some((category, index) => category.id !== categoryIds[index])
+  ) {
     throw new Error("index data has invalid categories");
   }
-  categories = payload.categories;
+  const selectedCategory = new URLSearchParams(window.location.search).get("category");
+  if (selectedCategory && !categoryIds.includes(selectedCategory)) {
+    throw new Error("invalid category id");
+  }
+  allCategories = payload.categories;
+  state.selectedCategory = selectedCategory;
+  categories = selectedCategory
+    ? allCategories.filter((category) => category.id === selectedCategory)
+    : allCategories;
 }
 
 /**
@@ -351,7 +209,7 @@ async function loadGeneratedIndex() {
 async function loadGeneratedDetail() {
   if (!document.body.classList.contains("detail-body")) return;
   const id = new URLSearchParams(window.location.search).get("id") ?? "";
-  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/i.test(id)) throw new Error("invalid detail id");
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(id)) throw new Error("invalid detail id");
   const response = await fetch(`./data/entries/${encodeURIComponent(id)}.json`, {
     cache: "no-store",
   });
@@ -407,18 +265,23 @@ function renderDetailEntry() {
   folioDate.textContent = formatEditorialDate(entry.addedAt);
   folioDate.setAttribute("datetime", entry.addedAt.slice(0, 10));
   document.querySelector("#entry-archive-code").textContent = entry.archiveCode;
-  document.querySelector("#entry-tags").textContent = entry.tags.join(" · ").toLocaleUpperCase();
+  const tags = document.querySelector("#entry-tags");
+  tags.textContent = entry.tags.join(" · ").toLocaleUpperCase();
+  tags.closest("div").hidden = entry.tags.length === 0;
   const addedAt = document.querySelector("#entry-added-at");
   addedAt.textContent = compactDate;
   addedAt.setAttribute("datetime", entry.addedAt.slice(0, 10));
-  document.querySelector("#entry-link-count").textContent = String(
-    entry.references.length + (entry.source ? 1 : 0),
-  ).padStart(2, "0");
+  const linkCount = entry.references.length + (entry.source ? 1 : 0);
+  const linkCountNode = document.querySelector("#entry-link-count");
+  linkCountNode.textContent = String(linkCount).padStart(2, "0");
+  linkCountNode.closest("div").hidden = linkCount === 0;
 
   const category = document.querySelector("#entry-category");
   category.innerHTML = `<a href="./?category=${escapeHtml(entry.category)}">${escapeHtml(categoryLabel)}</a>`;
   const back = document.querySelector(".dossier__back");
   back.setAttribute("href", `./?category=${encodeURIComponent(entry.category)}`);
+  back.querySelector("[data-i18n]").textContent =
+    state.language === "zh" ? `返回${categoryLabel}` : `Back to ${categoryLabel}`;
 
   const rating = document.querySelector("#entry-rating");
   rating.hidden = !entry.rating;
@@ -457,6 +320,8 @@ function renderDetailEntry() {
     )
     .join("");
   document.querySelector(".references").hidden = entry.references.length === 0;
+  document.querySelector(".dossier__content").hidden =
+    !entry.personalTakeHtml && !entry.source && entry.references.length === 0;
 }
 
 /**
@@ -505,6 +370,82 @@ function selectTopEntries(entries) {
 }
 
 /**
+ * 对分类页完整条目应用单标签、固定时间范围和显式排序。
+ *
+ * 为什么存在：首页只负责 Top 3；分类页必须展示全部内容，并按已确认的单标签、录入时间范围与两种排序组合筛选。
+ * 数据如何流动：原 entries 先按选中 tag 与 addedAt cutoff 过滤，再复制排序；rating 使用相同等级顺序，added_at 直接按时间倒序。
+ * 何时失败：异常 addedAt 会落到排序末尾且不命中有限时间范围；未知筛选值由控件白名单阻止。
+ * 如何排查：比较 state 三个筛选值、当前时间和条目 tags/addedAt；搜索结果不经过本函数。
+ * 什么不能改：不能支持多标签 AND、自定义日期、updatedAt 或语义筛选，也不能让首页 Top 3 受分类页筛选影响。
+ */
+function filterCategoryEntries(entries) {
+  const rangeDays = { "7": 7, "30": 30, "365": 365 };
+  const cutoff = rangeDays[state.categoryTime]
+    ? Date.now() - rangeDays[state.categoryTime] * 24 * 60 * 60 * 1000
+    : null;
+  const filtered = entries
+    .filter(
+      (entry) =>
+        !state.categoryTag || (Array.isArray(entry.tags) && entry.tags.includes(state.categoryTag)),
+    )
+    .filter((entry) => cutoff === null || Date.parse(entry.addedAt) >= cutoff)
+    .slice();
+
+  if (state.categorySort === "added_at") {
+    return filtered.sort((left, right) => Date.parse(right.addedAt) - Date.parse(left.addedAt));
+  }
+  const priority = { 夯: 3, 人上人: 2, NPC: 1 };
+  return filtered.sort((left, right) => {
+    const ratingDelta = (priority[right.rating] ?? 0) - (priority[left.rating] ?? 0);
+    return ratingDelta || Date.parse(right.addedAt) - Date.parse(left.addedAt);
+  });
+}
+
+/**
+ * 从当前分类数据构建紧凑筛选控件，并保持界面语言与选择状态。
+ *
+ * 为什么存在：标签动态来自事实源，不能写死 option；首页又不应展示只对分类页有意义的筛选栏。
+ * 数据如何流动：选中分类的 tags 去重排序后生成单选列表，排序/时间使用固定白名单文案；现有 state 回填 select 并控制评分说明显隐。
+ * 何时失败：分类没有标签时标签 select 禁用但保留“全部标签”；不存在的旧 tag 自动回到全部。
+ * 如何排查：检查 category data 的 tags 与 state.categoryTag；切换语言只重建 option 文案，不修改内容。
+ * 什么不能改：不能增加独立标签词表、多标签控件、自定义日期输入，或在首页显示分类筛选。
+ */
+function renderCategoryControls() {
+  if (!categoryControls || !categorySort || !categoryTag || !categoryTime || !ratingLegend) return;
+
+  const active = Boolean(state.selectedCategory && categories[0]);
+  categoryControls.hidden = !active;
+  ratingLegend.hidden = active;
+  if (!active) return;
+
+  const copy = translations[state.language];
+  const tags = [
+    ...new Set(
+      categories[0].entries.flatMap((entry) => (Array.isArray(entry.tags) ? entry.tags : [])),
+    ),
+  ].sort((left, right) => left.localeCompare(right));
+  if (state.categoryTag && !tags.includes(state.categoryTag)) state.categoryTag = "";
+  categorySort.innerHTML = `
+    <option value="rating">${escapeHtml(copy.sortRating)}</option>
+    <option value="added_at">${escapeHtml(copy.sortAdded)}</option>
+  `;
+  categoryTag.innerHTML = `
+    <option value="">${escapeHtml(copy.allTags)}</option>
+    ${tags.map((tag) => `<option value="${escapeHtml(tag)}"># ${escapeHtml(tag)}</option>`).join("")}
+  `;
+  categoryTime.innerHTML = `
+    <option value="all">${escapeHtml(copy.allTime)}</option>
+    <option value="7">${escapeHtml(copy.last7Days)}</option>
+    <option value="30">${escapeHtml(copy.last30Days)}</option>
+    <option value="365">${escapeHtml(copy.lastYear)}</option>
+  `;
+  categorySort.value = state.categorySort;
+  categoryTag.value = state.categoryTag;
+  categoryTag.disabled = tags.length === 0;
+  categoryTime.value = state.categoryTime;
+}
+
+/**
  * 生成首页第一期五个分类的语义结构。
  *
  * 为什么存在：首页只展示每类评分最高的三条，分类顺序和数量必须由同一份数据驱动。
@@ -519,19 +460,28 @@ function renderCategories() {
   categoryStack.innerHTML = categories
     .map((category, categoryIndex) => {
       const visibleLabel = state.language === "zh" ? category.labelZh : category.label;
-      const tracks = selectTopEntries(category.entries)
+      const archiveIndex = categoryIds.indexOf(category.id);
+      const visibleEntries = state.selectedCategory
+        ? filterCategoryEntries(category.entries)
+        : selectTopEntries(category.entries);
+      const tracks = visibleEntries
         .map(
-          (entry) => `
+          (entry) => {
+            const ratingLabel = entry.rating ?? translations[state.language].unrated;
+            return `
             <li class="track" id="${escapeHtml(category.id)}-${escapeHtml(entry.id)}">
               <a class="track__link" href="${escapeHtml(safeHref(entry.url))}">
-                <span class="rating rating--${ratingClass(entry.rating)}">${escapeHtml(entry.rating)}</span>
+                <span class="rating rating--${ratingClass(entry.rating)}">${escapeHtml(ratingLabel)}</span>
                 <span class="track__title">${escapeHtml(entry.title)}</span>
                 <span class="track__description">${escapeHtml(entry.description)}</span>
               </a>
             </li>
-          `,
+          `;
+          },
         )
         .join("");
+      const trackList =
+        tracks || `<li class="category-empty">${escapeHtml(translations[state.language].categoryEmpty)}</li>`;
 
       return `
         <section
@@ -545,16 +495,17 @@ function renderCategories() {
           <header class="sleeve__identity">
             <div class="sleeve__titleline">
               <h2 id="${escapeHtml(category.id)}-title">${escapeHtml(visibleLabel)}</h2>
-              <span class="sleeve__count" aria-label="${category.entries.length} ${translations[state.language].itemsLabel}">
-                / ${String(category.entries.length).padStart(2, "0")}
+              <span class="sleeve__count" aria-label="${state.selectedCategory ? visibleEntries.length : category.entries.length} ${translations[state.language].itemsLabel}">
+                / ${String(state.selectedCategory ? visibleEntries.length : category.entries.length).padStart(2, "0")}
               </span>
             </div>
             <span class="sleeve__code" aria-hidden="true">
-              AI-IX / ${category.label.toUpperCase()} / ${String(categoryIndex + 1).padStart(3, "0")}
+              AI-IX / ${category.label.toUpperCase()} / ${String(archiveIndex + 1).padStart(3, "0")}
             </span>
             <a
               class="sleeve__all"
               href="?category=${escapeHtml(category.id)}"
+              ${state.selectedCategory ? "hidden" : ""}
               aria-label="${escapeHtml(translations[state.language].viewAllAria)}：${escapeHtml(visibleLabel)}"
             >
               <span>${escapeHtml(translations[state.language].viewAll)}</span>
@@ -564,7 +515,7 @@ function renderCategories() {
             </a>
           </header>
           <ol class="track-list">
-            ${tracks}
+            ${trackList}
           </ol>
         </section>
       `;
@@ -607,7 +558,7 @@ function renderSearchResults() {
   if (!searchResults || !resultList) return;
 
   const query = state.query.trim();
-  const allEntries = categories.flatMap((category) => category.entries);
+  const allEntries = allCategories.flatMap((category) => category.entries);
   const matches = allEntries
     .map((entry) => ({ entry, score: relevanceScore(entry, query) }))
     .filter((result) => result.score > 0)
@@ -678,6 +629,7 @@ function applyLanguage() {
       ? '<span class="language-switch__muted">中</span><span aria-hidden="true">/</span><span class="language-switch__active">EN</span>'
       : '<span class="language-switch__active">中</span><span aria-hidden="true">/</span><span class="language-switch__muted">EN</span>';
 
+  renderCategoryControls();
   renderCategories();
   renderSearchResults();
   renderDetailEntry();
@@ -723,6 +675,21 @@ searchForm?.addEventListener("submit", (event) => {
 languageSwitch?.addEventListener("click", () => {
   state.language = state.language === "zh" ? "en" : "zh";
   applyLanguage();
+});
+
+categorySort?.addEventListener("change", (event) => {
+  state.categorySort = event.currentTarget.value;
+  renderCategories();
+});
+
+categoryTag?.addEventListener("change", (event) => {
+  state.categoryTag = event.currentTarget.value;
+  renderCategories();
+});
+
+categoryTime?.addEventListener("change", (event) => {
+  state.categoryTime = event.currentTarget.value;
+  renderCategories();
 });
 
 document.addEventListener("click", (event) => {

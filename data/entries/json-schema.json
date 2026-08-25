@@ -1,0 +1,21 @@
+{
+  "id": "json-schema",
+  "title": "JSON Schema",
+  "summary": "A shared vocabulary for validating structured tool inputs and outputs.",
+  "category": "standards",
+  "categoryLabel": "Standards",
+  "categoryLabelZh": "标准",
+  "archiveCode": "AI-IX / STANDARDS / 004",
+  "folioNumber": "004",
+  "tags": [],
+  "rating": null,
+  "addedAt": "2026-08-09T10:00:00.000Z",
+  "updatedAt": "2026-08-09T10:00:00.000Z",
+  "personalTakeHtml": "",
+  "source": {
+    "title": "JSON Schema",
+    "url": "https://json-schema.org/",
+    "domain": "json-schema.org"
+  },
+  "references": []
+}

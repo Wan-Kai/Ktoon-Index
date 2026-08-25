@@ -1,6 +1,6 @@
 {
   "name": "ktoon-ai-index",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
   "bin": {
@@ -16,8 +16,8 @@
     "prebuild": "npm run build:content",
     "build": "vite build",
     "build:content": "tsx scripts/build-content.ts",
-    "format": "prettier --write src scripts tests/*.ts bin/*.js content/*.json .github/workflows/*.yml vite.config.ts package.json tsconfig.json",
-    "format:check": "prettier --check src scripts tests/*.ts bin/*.js content/*.json .github/workflows/*.yml vite.config.ts package.json tsconfig.json",
+    "format": "prettier --write src scripts tests/*.ts bin/*.js .github/workflows/*.yml vite.config.ts package.json tsconfig.json",
+    "format:check": "prettier --check src scripts tests/*.ts bin/*.js .github/workflows/*.yml vite.config.ts package.json tsconfig.json",
     "typecheck": "vue-tsc --noEmit",
     "test": "vitest run"
   },

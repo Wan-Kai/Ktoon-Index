@@ -1,0 +1,21 @@
+{
+  "id": "wispr-flow",
+  "title": "Wispr Flow",
+  "summary": "Fast voice dictation shaped for everyday writing across desktop applications.",
+  "category": "products",
+  "categoryLabel": "Products",
+  "categoryLabelZh": "产品",
+  "archiveCode": "AI-IX / PRODUCTS / 003",
+  "folioNumber": "003",
+  "tags": [],
+  "rating": "NPC",
+  "addedAt": "2026-08-01T10:00:00.000Z",
+  "updatedAt": "2026-08-01T10:00:00.000Z",
+  "personalTakeHtml": "",
+  "source": {
+    "title": "Wispr Flow",
+    "url": "https://wisprflow.ai/",
+    "domain": "wisprflow.ai"
+  },
+  "references": []
+}

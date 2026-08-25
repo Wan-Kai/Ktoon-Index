@@ -10,6 +10,11 @@
           "rating": "夯",
           "addedAt": "2026-08-25T03:13:13.992Z",
           "updatedAt": "2026-08-25T03:13:13.992Z",
+          "tags": [
+            "mcp",
+            "debugging",
+            "agent-tooling"
+          ],
           "title": "MCP Inspector",
           "description": "A focused workbench for testing MCP servers, tools, resources, and prompts.",
           "url": "./detail.html?id=mcp-inspector"
@@ -17,26 +22,32 @@
         {
           "id": "context7",
           "rating": "人上人",
-          "addedAt": "2026-08-06T10:00:00Z",
+          "addedAt": "2026-08-06T10:00:00.000Z",
+          "updatedAt": "2026-08-06T10:00:00.000Z",
+          "tags": [],
           "title": "Context7",
           "description": "Current library documentation delivered directly into an agent's working context.",
-          "url": "https://context7.com/"
+          "url": "./detail.html?id=context7"
         },
         {
           "id": "playwright-mcp",
           "rating": "NPC",
-          "addedAt": "2026-08-03T10:00:00Z",
+          "addedAt": "2026-08-03T10:00:00.000Z",
+          "updatedAt": "2026-08-03T10:00:00.000Z",
+          "tags": [],
           "title": "Playwright MCP",
           "description": "Browser automation for agents through structured, accessibility-aware actions.",
-          "url": "https://github.com/microsoft/playwright-mcp"
+          "url": "./detail.html?id=playwright-mcp"
         },
         {
           "id": "token-counter",
           "rating": null,
-          "addedAt": "2026-08-09T10:00:00Z",
+          "addedAt": "2026-08-09T10:00:00.000Z",
+          "updatedAt": "2026-08-09T10:00:00.000Z",
+          "tags": [],
           "title": "Token Counter",
           "description": "Estimate token usage before sending a long context to a model.",
-          "url": "#toolkit-token-counter"
+          "url": "./detail.html?id=token-counter"
         }
       ]
     },
@@ -48,34 +59,42 @@
         {
           "id": "granola",
           "rating": "夯",
-          "addedAt": "2026-08-08T10:00:00Z",
+          "addedAt": "2026-08-08T10:00:00.000Z",
+          "updatedAt": "2026-08-08T10:00:00.000Z",
+          "tags": [],
           "title": "Granola",
           "description": "An AI notepad that turns meetings into useful notes without a meeting bot.",
-          "url": "https://www.granola.ai/"
+          "url": "./detail.html?id=granola"
         },
         {
           "id": "dia",
           "rating": "人上人",
-          "addedAt": "2026-08-05T10:00:00Z",
+          "addedAt": "2026-08-05T10:00:00.000Z",
+          "updatedAt": "2026-08-05T10:00:00.000Z",
+          "tags": [],
           "title": "Dia",
           "description": "A browser that treats AI as part of the place where knowledge work happens.",
-          "url": "https://www.diabrowser.com/"
+          "url": "./detail.html?id=dia"
         },
         {
           "id": "wispr-flow",
           "rating": "NPC",
-          "addedAt": "2026-08-01T10:00:00Z",
+          "addedAt": "2026-08-01T10:00:00.000Z",
+          "updatedAt": "2026-08-01T10:00:00.000Z",
+          "tags": [],
           "title": "Wispr Flow",
           "description": "Fast voice dictation shaped for everyday writing across desktop applications.",
-          "url": "https://wisprflow.ai/"
+          "url": "./detail.html?id=wispr-flow"
         },
         {
           "id": "raycast-ai",
           "rating": null,
-          "addedAt": "2026-08-10T10:00:00Z",
+          "addedAt": "2026-08-10T10:00:00.000Z",
+          "updatedAt": "2026-08-10T10:00:00.000Z",
+          "tags": [],
           "title": "Raycast AI",
           "description": "A compact AI command surface embedded in a desktop launcher.",
-          "url": "https://www.raycast.com/ai"
+          "url": "./detail.html?id=raycast-ai"
         }
       ]
     },
@@ -87,34 +106,42 @@
         {
           "id": "agent-receipts",
           "rating": "夯",
-          "addedAt": "2026-08-09T10:00:00Z",
+          "addedAt": "2026-08-09T10:00:00.000Z",
+          "updatedAt": "2026-08-09T10:00:00.000Z",
+          "tags": [],
           "title": "Agent Receipts Should Be Readable",
           "description": "Action traces should help humans understand what changed and why.",
-          "url": "#articles-agent-receipts"
+          "url": "./detail.html?id=agent-receipts"
         },
         {
           "id": "tools-over-prompts",
           "rating": "人上人",
-          "addedAt": "2026-08-06T10:00:00Z",
+          "addedAt": "2026-08-06T10:00:00.000Z",
+          "updatedAt": "2026-08-06T10:00:00.000Z",
+          "tags": [],
           "title": "Tool Boundaries Matter More Than Prompts",
           "description": "Mechanism is a more dependable safety layer than asking a model to behave.",
-          "url": "#articles-tool-boundaries"
+          "url": "./detail.html?id=tools-over-prompts"
         },
         {
           "id": "context-artifact",
           "rating": "NPC",
-          "addedAt": "2026-08-03T10:00:00Z",
+          "addedAt": "2026-08-03T10:00:00.000Z",
+          "updatedAt": "2026-08-03T10:00:00.000Z",
+          "tags": [],
           "title": "Context Is a First-Class Artifact",
           "description": "Version, inspect, and improve context with the same care as source code.",
-          "url": "#articles-context-artifact"
+          "url": "./detail.html?id=context-artifact"
         },
         {
           "id": "when-not-to-automate",
           "rating": null,
-          "addedAt": "2026-08-10T10:00:00Z",
+          "addedAt": "2026-08-10T10:00:00.000Z",
+          "updatedAt": "2026-08-10T10:00:00.000Z",
+          "tags": [],
           "title": "When Not to Automate",
           "description": "Keep a task manual when the feedback loop is more valuable than the saved time.",
-          "url": "#articles-when-not-to-automate"
+          "url": "./detail.html?id=when-not-to-automate"
         }
       ]
     },
@@ -126,34 +153,42 @@
         {
           "id": "mcp-spec",
           "rating": "夯",
-          "addedAt": "2026-08-08T10:00:00Z",
+          "addedAt": "2026-08-08T10:00:00.000Z",
+          "updatedAt": "2026-08-08T10:00:00.000Z",
+          "tags": [],
           "title": "Model Context Protocol",
           "description": "An open protocol for connecting AI applications to tools and data sources.",
-          "url": "https://modelcontextprotocol.io/specification/"
+          "url": "./detail.html?id=mcp-spec"
         },
         {
           "id": "agents-md",
           "rating": "人上人",
-          "addedAt": "2026-08-04T10:00:00Z",
+          "addedAt": "2026-08-04T10:00:00.000Z",
+          "updatedAt": "2026-08-04T10:00:00.000Z",
+          "tags": [],
           "title": "AGENTS.md",
           "description": "A simple convention for giving coding agents durable repository guidance.",
-          "url": "https://agents.md/"
+          "url": "./detail.html?id=agents-md"
         },
         {
           "id": "otel-genai",
           "rating": "NPC",
-          "addedAt": "2026-08-02T10:00:00Z",
+          "addedAt": "2026-08-02T10:00:00.000Z",
+          "updatedAt": "2026-08-02T10:00:00.000Z",
+          "tags": [],
           "title": "OpenTelemetry GenAI Conventions",
           "description": "Shared semantic conventions for observing models, tools, and agent systems.",
-          "url": "https://opentelemetry.io/docs/specs/semconv/gen-ai/"
+          "url": "./detail.html?id=otel-genai"
         },
         {
           "id": "json-schema",
           "rating": null,
-          "addedAt": "2026-08-09T10:00:00Z",
+          "addedAt": "2026-08-09T10:00:00.000Z",
+          "updatedAt": "2026-08-09T10:00:00.000Z",
+          "tags": [],
           "title": "JSON Schema",
           "description": "A shared vocabulary for validating structured tool inputs and outputs.",
-          "url": "https://json-schema.org/"
+          "url": "./detail.html?id=json-schema"
         }
       ]
     },
@@ -165,34 +200,42 @@
         {
           "id": "intent-diff",
           "rating": "夯",
-          "addedAt": "2026-08-10T10:00:00Z",
+          "addedAt": "2026-08-10T10:00:00.000Z",
+          "updatedAt": "2026-08-10T10:00:00.000Z",
+          "tags": [],
           "title": "Intent Diff for Agent Actions",
           "description": "Show the gap between requested intent and executed change before it matters.",
-          "url": "#ideas-intent-diff"
+          "url": "./detail.html?id=intent-diff"
         },
         {
           "id": "personal-ai-os",
           "rating": "人上人",
-          "addedAt": "2026-08-07T10:00:00Z",
+          "addedAt": "2026-08-07T10:00:00.000Z",
+          "updatedAt": "2026-08-07T10:00:00.000Z",
+          "tags": [],
           "title": "A Personal AI Command Layer",
           "description": "One narrow, inspectable layer for agents to operate a person's digital world.",
-          "url": "#ideas-personal-ai-os"
+          "url": "./detail.html?id=personal-ai-os"
         },
         {
           "id": "skill-market",
           "rating": "NPC",
-          "addedAt": "2026-08-02T10:00:00Z",
+          "addedAt": "2026-08-02T10:00:00.000Z",
+          "updatedAt": "2026-08-02T10:00:00.000Z",
+          "tags": [],
           "title": "A Local Skill Exchange",
           "description": "Package proven agent workflows so they can travel with their operating context.",
-          "url": "#ideas-skill-market"
+          "url": "./detail.html?id=skill-market"
         },
         {
           "id": "memory-lens",
           "rating": null,
-          "addedAt": "2026-08-11T10:00:00Z",
+          "addedAt": "2026-08-11T10:00:00.000Z",
+          "updatedAt": "2026-08-11T10:00:00.000Z",
+          "tags": [],
           "title": "A Memory Lens for Agents",
           "description": "Let people inspect which past experiences shaped an agent's current plan.",
-          "url": "#ideas-memory-lens"
+          "url": "./detail.html?id=memory-lens"
         }
       ]
     }

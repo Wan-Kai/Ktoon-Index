@@ -1,0 +1,21 @@
+{
+  "id": "otel-genai",
+  "title": "OpenTelemetry GenAI Conventions",
+  "summary": "Shared semantic conventions for observing models, tools, and agent systems.",
+  "category": "standards",
+  "categoryLabel": "Standards",
+  "categoryLabelZh": "标准",
+  "archiveCode": "AI-IX / STANDARDS / 003",
+  "folioNumber": "003",
+  "tags": [],
+  "rating": "NPC",
+  "addedAt": "2026-08-02T10:00:00.000Z",
+  "updatedAt": "2026-08-02T10:00:00.000Z",
+  "personalTakeHtml": "",
+  "source": {
+    "title": "OpenTelemetry GenAI Conventions",
+    "url": "https://opentelemetry.io/docs/specs/semconv/gen-ai/",
+    "domain": "opentelemetry.io"
+  },
+  "references": []
+}

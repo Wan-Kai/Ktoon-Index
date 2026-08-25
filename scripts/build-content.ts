@@ -2,11 +2,11 @@ import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import legacyCategories from "../content/legacy-index.json";
 import {
   CATEGORY_IDS,
   CATEGORY_META,
   AppError,
+  filterEntries,
   parseEntry,
   projectIndexEntry,
   projectPublicEntry,
@@ -16,6 +16,36 @@ import {
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const contentDirectory = resolve(projectRoot, "content/entries");
 const dataDirectory = resolve(projectRoot, "data");
+
+/**
+ * 把完整 Entry 集合投影为唯一的 M4 首页与详情读模型。
+ *
+ * 为什么存在：构建、回收测试和未来 CI 必须共享 published 过滤、固定分类顺序、评分排序与 ordinal 规则，不能只在文件写循环中隐式实现。
+ * 数据如何流动：已校验 Entry 先按 category/rating 分组为 index entries；每个 published 条目再使用其分类位置生成 detail 白名单，recycled 完全不进入返回值。
+ * 何时失败：公开投影中的 Markdown/URL 异常会抛错并阻断整体构建；空分类保留但 entries 为空。
+ * 如何排查：先按 ID 运行 parseEntry，再比较 categories 中的位置与对应 detail archiveCode。
+ * 什么不能改：不能从 legacy fixture、app.js 或旧 data 补内容，也不能让 recycled 条目生成任何详情 JSON。
+ */
+export function projectContent(entries: Entry[]) {
+  const published = entries.filter((entry) => entry.status === "published");
+  const categories = CATEGORY_IDS.map((categoryId) => ({
+    id: categoryId,
+    label: CATEGORY_META[categoryId].label,
+    labelZh: CATEGORY_META[categoryId].labelZh,
+    entries: filterEntries(published, { category: categoryId, sort: "rating" }).map(
+      projectIndexEntry,
+    ),
+  }));
+  const details = published.map((entry) => {
+    const category = categories.find((candidate) => candidate.id === entry.category);
+    const ordinal = Math.max(
+      1,
+      (category?.entries.findIndex((candidate) => candidate.id === entry.id) ?? 0) + 1,
+    );
+    return { id: entry.id, data: projectPublicEntry(entry, ordinal) };
+  });
+  return { categories, details };
+}
 
 /**
  * 读取并校验全部 Markdown 事实源，任何单文件损坏都会阻止公开 JSON 更新。
@@ -51,44 +81,19 @@ export async function readAuthoritativeEntries(): Promise<Entry[]> {
 }
 
 /**
- * 生成迁移期公开读模型，同时让未迁移的十九条演示数据继续工作。
+ * 从全部权威 Markdown 生成首页与通用详情页公开读模型。
  *
- * 为什么存在：M1/M2 只迁移 MCP Inspector，页面又必须保持五分类完整；因此构建期暂时以明确的 19 条 legacy 数据填充未迁移条目，并由 Markdown 加入已迁移内容。
- * 数据如何流动：先复制 legacy 分类数据，再防御性删除与事实源同 ID 的记录，加入 published Markdown 投影；write=false 只完成内存投影，write=true 才顺序重建 data。
+ * 为什么存在：M4 已删除 legacy 桥，公开站必须只消费二十份 Markdown 的白名单投影，并让 recycled 条目完全退出首页与详情产物。
+ * 数据如何流动：全部事实源先按固定分类与评分优先语义筛选 published 条目，再分别生成 index entry 和带稳定分类 ordinal 的 detail；write=false 只做内存校验。
  * 何时失败：事实源校验失败、公开投影失败，或 write=true 时输出目录不可写/JSON 序列化失败会中止；顺序写入中途失败可能留下部分 data。
  * 如何排查：运行 `npm run build:content -- --check` 做无写入诊断；修复后必须重新运行普通 build:content 完整重建，不能继续使用部分输出。
- * 什么不能改：这个兼容桥只允许在 M4 全量迁移后整体删除，不能让 migrated ID 同时保留 fixture 与 Markdown 两份事实；顺序写入并非原子事务，失败后必须修复原因并重新完整构建。
+ * 什么不能改：不能读取 app.js、历史 fixture 或生成 JSON 补齐内容；顺序写入并非原子事务，失败后必须修复原因并重新完整构建。
  */
 export async function buildContent(
   options: { write?: boolean } = {},
 ): Promise<{ entries: number; details: number }> {
   const authoritativeEntries = await readAuthoritativeEntries();
-  const authoritativeIds = new Set(authoritativeEntries.map((entry) => entry.id));
-  const categories = CATEGORY_IDS.map((categoryId) => {
-    const legacy = legacyCategories.find((category) => category.id === categoryId);
-    const entries = (legacy?.entries ?? []).filter((entry) => !authoritativeIds.has(entry.id));
-    const migrated = authoritativeEntries
-      .filter((entry) => entry.status === "published" && entry.category === categoryId)
-      .map(projectIndexEntry);
-    return {
-      id: categoryId,
-      label: CATEGORY_META[categoryId].label,
-      labelZh: CATEGORY_META[categoryId].labelZh,
-      entries: [...migrated, ...entries],
-    };
-  });
-
-  const details = [];
-  for (const entry of authoritativeEntries.filter(
-    (candidate) => candidate.status === "published",
-  )) {
-    const category = categories.find((candidate) => candidate.id === entry.category);
-    const ordinal = Math.max(
-      1,
-      (category?.entries.findIndex((candidate) => candidate.id === entry.id) ?? 0) + 1,
-    );
-    details.push({ id: entry.id, data: projectPublicEntry(entry, ordinal) });
-  }
+  const { categories, details } = projectContent(authoritativeEntries);
 
   if (options.write !== false) {
     await rm(dataDirectory, { recursive: true, force: true });
@@ -118,7 +123,7 @@ if (fileURLToPath(import.meta.url) === resolve(process.argv[1] ?? "")) {
     const checkOnly = process.argv.includes("--check");
     const result = await buildContent({ write: !checkOnly });
     process.stdout.write(
-      `${JSON.stringify({ ok: true, command: "build:content", phase: "M3", check: checkOnly, ...result })}\n`,
+      `${JSON.stringify({ ok: true, command: "build:content", phase: "M4", check: checkOnly, ...result })}\n`,
     );
   } catch (error) {
     const appError =

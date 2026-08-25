@@ -61,7 +61,6 @@ Adapter 不读取公开 JSON，也不各自实现查询规则。
 
 内容检查模式不改写 `data/`。
 
-## 当前数据边界
+## M4 后的数据边界
 
-M2 的管理 CLI 只读取已经迁移到 `content/entries/*.md` 的权威内容，因此当前真实 list/search/tag 只包含 MCP Inspector。首页暂存的另外 19 条 legacy 内容会在 M4 迁移后自然进入 CLI；CLI 不读取兼容 JSON 来伪装为可维护条目。
-
+M2 最初只有 MCP Inspector 一份权威内容。M4 已迁移全部 20 条 Markdown，因此真实 list/search/tag 与公开站使用同一完整集合；CLI 和构建器均不再读取 legacy JSON。
