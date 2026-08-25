@@ -59,7 +59,9 @@ export async function readAuthoritativeEntries(): Promise<Entry[]> {
  * 如何排查：运行 `npm run build:content` 获取具体错误；确认 `data/` 没有被人工编辑并检查目录权限。
  * 什么不能改：这个兼容桥只允许在 M4 全量迁移后整体删除，不能让 migrated ID 同时保留 fixture 与 Markdown 两份事实。
  */
-export async function buildContent(): Promise<{ entries: number; details: number }> {
+export async function buildContent(
+  options: { write?: boolean } = {},
+): Promise<{ entries: number; details: number }> {
   const authoritativeEntries = await readAuthoritativeEntries();
   const authoritativeIds = new Set(authoritativeEntries.map((entry) => entry.id));
   const categories = CATEGORY_IDS.map((categoryId) => {
@@ -76,15 +78,7 @@ export async function buildContent(): Promise<{ entries: number; details: number
     };
   });
 
-  await rm(dataDirectory, { recursive: true, force: true });
-  await mkdir(resolve(dataDirectory, "entries"), { recursive: true });
-  await writeFile(
-    resolve(dataDirectory, "index.json"),
-    `${JSON.stringify({ categories }, null, 2)}\n`,
-    "utf8",
-  );
-
-  let details = 0;
+  const details = [];
   for (const entry of authoritativeEntries.filter(
     (candidate) => candidate.status === "published",
   )) {
@@ -93,25 +87,38 @@ export async function buildContent(): Promise<{ entries: number; details: number
       1,
       (category?.entries.findIndex((candidate) => candidate.id === entry.id) ?? 0) + 1,
     );
+    details.push({ id: entry.id, data: projectPublicEntry(entry, ordinal) });
+  }
+
+  if (options.write !== false) {
+    await rm(dataDirectory, { recursive: true, force: true });
+    await mkdir(resolve(dataDirectory, "entries"), { recursive: true });
     await writeFile(
-      resolve(dataDirectory, "entries", `${entry.id}.json`),
-      `${JSON.stringify(projectPublicEntry(entry, ordinal), null, 2)}\n`,
+      resolve(dataDirectory, "index.json"),
+      `${JSON.stringify({ categories }, null, 2)}\n`,
       "utf8",
     );
-    details += 1;
+    for (const detail of details) {
+      await writeFile(
+        resolve(dataDirectory, "entries", `${detail.id}.json`),
+        `${JSON.stringify(detail.data, null, 2)}\n`,
+        "utf8",
+      );
+    }
   }
 
   return {
     entries: categories.reduce((total, category) => total + category.entries.length, 0),
-    details,
+    details: details.length,
   };
 }
 
 if (fileURLToPath(import.meta.url) === resolve(process.argv[1] ?? "")) {
   try {
-    const result = await buildContent();
+    const checkOnly = process.argv.includes("--check");
+    const result = await buildContent({ write: !checkOnly });
     process.stdout.write(
-      `${JSON.stringify({ ok: true, command: "build:content", phase: "M1", ...result })}\n`,
+      `${JSON.stringify({ ok: true, command: "build:content", phase: "M2", check: checkOnly, ...result })}\n`,
     );
   } catch (error) {
     const appError =

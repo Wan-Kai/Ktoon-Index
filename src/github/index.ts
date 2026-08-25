@@ -3,6 +3,7 @@ export {
   GITHUB_OWNER,
   GITHUB_REPOSITORY,
   GitHubContentClient,
+  GitHubEntryReader,
   defaultGhRunner,
   type GhRunner,
   type RemoteEntry,

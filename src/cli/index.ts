@@ -5,13 +5,95 @@ import { readFileSync } from "node:fs";
 
 import { Command, CommanderError } from "commander";
 
-import { AppError, createEntry, serializeEntry } from "../content/index.ts";
-import { GitHubContentClient } from "../github/index.ts";
+import {
+  CATEGORY_IDS,
+  RATINGS,
+  AppError,
+  createEntry,
+  filterEntries,
+  listTags,
+  searchEntries,
+  serializeEntry,
+  type CategoryId,
+  type Entry,
+  type EntryQueryFilters,
+  type EntrySort,
+  type Rating,
+} from "../content/index.ts";
+import { GitHubContentClient, GitHubEntryReader } from "../github/index.ts";
+import { runDoctor } from "./doctor.ts";
+import { parseOutputFormat, writeOutput, type OutputFormat, type TableRow } from "./output.ts";
 
 type JsonRecord = Record<string, unknown>;
 
-function writeJson(value: unknown): void {
-  process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
+type ReadOptions = {
+  category?: string;
+  tag?: string[];
+  rating?: string;
+  addedAfter?: string;
+  addedBefore?: string;
+  sort?: string;
+  format?: string;
+};
+
+function addReadOptions(command: Command): Command {
+  return command
+    .option("--category <category>", "按固定分类筛选")
+    .option("--tag <tags...>", "按一个或多个标签筛选；多个标签为 AND")
+    .option("--rating <rating>", "按夯、人上人、NPC 或 unrated 筛选")
+    .option("--added-after <time>", "录入时间下界，包含端点")
+    .option("--added-before <time>", "录入时间上界，包含端点")
+    .option("--sort <sort>", "rating 或 added_at", "rating")
+    .option("--format <format>", "json 或 table", "json");
+}
+
+/**
+ * 把 Commander 字符串参数转换为领域查询过滤器。
+ *
+ * 为什么存在：未知分类、评分、排序和格式必须在 GitHub 请求前失败，且 CLI 不能复制 query.ts 的实际筛选逻辑。
+ * 数据如何流动：枚举参数做白名单映射，unrated 转为 null，标签与时间保持原值交给领域层统一规范化和解析。
+ * 何时失败：任一枚举未知时抛出 VALIDATION_FAILED；格式由 parseOutputFormat 单独校验。
+ * 如何排查：参考命令 help 中的允许值，时间使用 ISO 或 YYYY-MM-DD。
+ * 什么不能改：不能静默回退默认分类/评分，也不能在这里实现字符串搜索或排序比较。
+ */
+function parseReadOptions(options: ReadOptions): {
+  filters: EntryQueryFilters;
+  format: OutputFormat;
+} {
+  if (options.category && !CATEGORY_IDS.includes(options.category as CategoryId)) {
+    throw new AppError("VALIDATION_FAILED", "未知分类", { value: options.category });
+  }
+  let rating: Rating | null | undefined;
+  if (options.rating === "unrated") rating = null;
+  else if (options.rating && RATINGS.includes(options.rating as Rating))
+    rating = options.rating as Rating;
+  else if (options.rating) {
+    throw new AppError("VALIDATION_FAILED", "未知评分", { value: options.rating });
+  }
+  if (options.sort && options.sort !== "rating" && options.sort !== "added_at") {
+    throw new AppError("VALIDATION_FAILED", "未知排序方式", { value: options.sort });
+  }
+  return {
+    filters: {
+      category: options.category as CategoryId | undefined,
+      tags: options.tag,
+      rating,
+      addedAfter: options.addedAfter,
+      addedBefore: options.addedBefore,
+      sort: options.sort as EntrySort | undefined,
+    },
+    format: parseOutputFormat(options.format),
+  };
+}
+
+function entryTableRows(entries: Entry[]): TableRow[] {
+  return entries.map((entry) => ({
+    ID: entry.id,
+    CATEGORY: entry.category,
+    RATING: entry.rating ?? "unrated",
+    TITLE: entry.title,
+    ADDED_AT: entry.addedAt,
+  }));
 }
 
 /**
@@ -36,20 +118,21 @@ function readJsonInput(path: string): unknown {
 }
 
 /**
- * 建立 M1 最小 CLI 命令树。
+ * 建立 M2 CLI 命令树。
  *
  * 为什么存在：命令解析与执行要可在测试中注入 GitHub adapter，避免单元测试真实修改远端。
- * 数据如何流动：doctor 只读检查认证；create 读取 JSON、建模、序列化后提交单文件；get 从远端解析同一 Markdown。
+ * 数据如何流动：doctor 检查运行环境；create/get 复用 M1；list/search/tag list 通过 GitHubEntryReader 进入统一查询模块和输出层。
  * 何时失败：领域或 GitHub 层抛出 AppError，由最外层统一输出机器可读错误和非零退出码。
  * 如何排查：先执行 doctor，再根据 error.code 修正输入、认证或远端冲突。
  * 什么不能改：不能让 create/get 直接读写当前工作区，也不能在 commander action 内复制 Schema 规则。
  */
 export function createProgram(client = new GitHubContentClient()): Command {
   const program = new Command();
+  const reader = new GitHubEntryReader(client);
   program
     .name("ai-index")
     .description("Ktoon Index 内容维护 CLI")
-    .version("0.1.0")
+    .version("0.2.0")
     .exitOverride()
     .configureOutput({
       // Commander 参数错误由 runCli 统一输出 JSON，禁止先混入一段不可解析的纯文本。
@@ -59,9 +142,9 @@ export function createProgram(client = new GitHubContentClient()): Command {
 
   program
     .command("doctor")
-    .description("检查 gh 认证和固定仓库权限")
+    .description("检查 Node、gh 权限和内容构建能力")
     .action(() => {
-      writeJson({ ok: true, command: "doctor", checks: client.doctor() });
+      writeOutput({ ok: true, command: "doctor", checks: runDoctor(client) }, "json");
     });
 
   const entry = program.command("entry").description("管理单个条目");
@@ -75,14 +158,17 @@ export function createProgram(client = new GitHubContentClient()): Command {
       client.doctor();
       const requestId = randomUUID();
       const result = client.createEntry(model, markdown, requestId);
-      writeJson({
-        ok: true,
-        command: "entry create",
-        request_id: requestId,
-        commit_sha: result.commitSha,
-        path: result.path,
-        entry: model,
-      });
+      writeOutput(
+        {
+          ok: true,
+          command: "entry create",
+          request_id: requestId,
+          commit_sha: result.commitSha,
+          path: result.path,
+          entry: model,
+        },
+        "json",
+      );
     });
 
   entry
@@ -92,13 +178,61 @@ export function createProgram(client = new GitHubContentClient()): Command {
     .action((id: string) => {
       client.doctor();
       const result = client.getEntry(id);
-      writeJson({
-        ok: true,
-        command: "entry get",
-        sha: result.sha,
-        path: result.path,
-        entry: result.entry,
-      });
+      writeOutput(
+        {
+          ok: true,
+          command: "entry get",
+          sha: result.sha,
+          path: result.path,
+          entry: result.entry,
+        },
+        "json",
+      );
+    });
+
+  addReadOptions(entry.command("list").description("列出远端 Markdown 条目")).action(
+    (options: ReadOptions) => {
+      const { filters, format } = parseReadOptions(options);
+      client.doctor();
+      const entries = filterEntries(reader.listEntries(), filters);
+      writeOutput(
+        { ok: true, command: "entry list", count: entries.length, entries },
+        format,
+        entryTableRows(entries),
+      );
+    },
+  );
+
+  addReadOptions(
+    entry
+      .command("search")
+      .description("按标题和摘要搜索远端 Markdown 条目")
+      .argument("<query>", "字符串查询"),
+  ).action((query: string, options: ReadOptions) => {
+    const { filters, format } = parseReadOptions(options);
+    client.doctor();
+    const results = searchEntries(reader.listEntries(), query, filters);
+    writeOutput(
+      { ok: true, command: "entry search", query, count: results.length, results },
+      format,
+      results.map(({ entry, score }) => ({ SCORE: score, ...entryTableRows([entry])[0] })),
+    );
+  });
+
+  const tag = program.command("tag").description("读取动态标签");
+  tag
+    .command("list")
+    .description("从远端 Markdown 条目枚举标签")
+    .option("--format <format>", "json 或 table", "json")
+    .action((options: { format?: string }) => {
+      const format = parseOutputFormat(options.format);
+      client.doctor();
+      const tags = listTags(reader.listEntries());
+      writeOutput(
+        { ok: true, command: "tag list", count: tags.length, tags },
+        format,
+        tags.map((value) => ({ TAG: value })),
+      );
     });
 
   return program;

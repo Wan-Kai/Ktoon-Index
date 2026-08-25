@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
@@ -6,6 +7,7 @@ import { parseEntry, projectPublicEntry } from "../src/content/index.ts";
 import detail from "../data/entries/mcp-inspector.json";
 import index from "../data/index.json";
 import legacy from "../content/legacy-index.json";
+import { buildContent } from "../scripts/build-content.ts";
 
 describe("M1 MCP Inspector 纵向读模型", () => {
   it("详情 JSON 完全由唯一 Markdown 事实源投影且不含维护字段", () => {
@@ -47,5 +49,17 @@ describe("M1 MCP Inspector 纵向读模型", () => {
     expect(app).not.toContain('title: "MCP Inspector"');
     expect(html).not.toContain("github.com/modelcontextprotocol/inspector");
     expect(html).not.toContain("A focused workbench for testing MCP servers");
+  });
+
+  it("内容检查模式完成完整投影但不改写 data", async () => {
+    const paths = ["../data/index.json", "../data/entries/mcp-inspector.json"];
+    const hash = (path: string) =>
+      createHash("sha256")
+        .update(readFileSync(new URL(path, import.meta.url)))
+        .digest("hex");
+    const before = paths.map(hash);
+
+    await expect(buildContent({ write: false })).resolves.toEqual({ entries: 20, details: 1 });
+    expect(paths.map(hash)).toEqual(before);
   });
 });
