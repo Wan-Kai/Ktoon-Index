@@ -2,7 +2,7 @@ import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import legacyCategories from "../tests/fixtures/current-content.json";
+import legacyCategories from "../content/legacy-index.json";
 import {
   CATEGORY_IDS,
   CATEGORY_META,
@@ -53,8 +53,8 @@ export async function readAuthoritativeEntries(): Promise<Entry[]> {
 /**
  * 生成 M1 公开读模型，同时让未迁移的十九条演示数据继续工作。
  *
- * 为什么存在：M1 只迁移 MCP Inspector，页面又必须保持五分类完整；因此构建期暂时以 M0 fixture 填充未迁移条目，并由 Markdown 按 ID 覆盖。
- * 数据如何流动：先复制 M0 分类数据，再删除与事实源同 ID 的旧记录，加入 published Markdown 投影；recycled 条目从首页和详情产物排除。
+ * 为什么存在：M1 只迁移 MCP Inspector，页面又必须保持五分类完整；因此构建期暂时以明确的 19 条 legacy 数据填充未迁移条目，并由 Markdown 加入已迁移内容。
+ * 数据如何流动：先复制 legacy 分类数据，再防御性删除与事实源同 ID 的记录，加入 published Markdown 投影；recycled 条目从首页和详情产物排除。
  * 何时失败：事实源校验失败、输出目录不可写或 JSON 序列化失败时整体中止。
  * 如何排查：运行 `npm run build:content` 获取具体错误；确认 `data/` 没有被人工编辑并检查目录权限。
  * 什么不能改：这个兼容桥只允许在 M4 全量迁移后整体删除，不能让 migrated ID 同时保留 fixture 与 Markdown 两份事实。

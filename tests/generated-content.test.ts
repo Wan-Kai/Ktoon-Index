@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import { parseEntry, projectPublicEntry } from "../src/content/index.ts";
 import detail from "../data/entries/mcp-inspector.json";
 import index from "../data/index.json";
+import legacy from "../content/legacy-index.json";
 
 describe("M1 MCP Inspector 纵向读模型", () => {
   it("详情 JSON 完全由唯一 Markdown 事实源投影且不含维护字段", () => {
@@ -33,6 +34,9 @@ describe("M1 MCP Inspector 纵向读模型", () => {
     ]);
     expect(entries).toHaveLength(20);
     expect(entries.filter((entry) => entry.id === "mcp-inspector")).toHaveLength(1);
+    expect(
+      legacy.flatMap((category) => category.entries).some((entry) => entry.id === "mcp-inspector"),
+    ).toBe(false);
   });
 
   it("页面源文件不再保存 MCP Inspector 的结构化事实副本", () => {

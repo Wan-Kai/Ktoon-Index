@@ -49,7 +49,7 @@ npm run ai-index -- entry get mcp-inspector
 
 ## M1 兼容桥
 
-M1 只迁移 MCP Inspector。其余 19 条内容暂时从 M0 fixture 进入 `data/index.json`；构建器会按 ID 删除 fixture 中的旧 MCP Inspector，再加入 Markdown 投影，因此迁移样例只有一个事实源。这个兼容桥在 M4 全量迁移时整体删除。
+M1 只迁移 MCP Inspector。其余 19 条内容暂时从 `content/legacy-index.json` 进入 `data/index.json`；该兼容文件不含 MCP Inspector，构建器再加入 Markdown 投影，因此迁移样例只有一个事实源。M0 fixture 仅作历史测试证据，不参与运行时构建。这个兼容桥在 M4 全量迁移时整体删除。
 
 ## 自动化
 
@@ -71,4 +71,3 @@ Actions 不信任仓库中可能过期的生成文件；每次部署都会重新
 - 内容构建生成五分类、20 条首页数据和 1 份详情数据。
 - Chrome 实测 1440×900、1024×900、390×844，首页与详情页无横向溢出。
 - 首页搜索 MCP Inspector 返回 1 条；中英文切换只改变界面文案。
-
