@@ -28,6 +28,26 @@ const allowedTokenTypes = new Set([
 ]);
 
 /**
+ * 对 Markdown token 与原始语法中的 URL 执行同一安全边界。
+ *
+ * 为什么存在：markdown-it 会把部分危险链接降级成文本，单看 token 会漏掉攻击尝试；预扫描与 token 检查必须复用同一规则。
+ * 数据如何流动：原始 href 解析为 URL，只接受无 username/password 的 HTTPS，其余全部抛出领域错误。
+ * 何时失败：无效 URL、非 HTTPS 或内嵌凭据都会在公开 HTML 生成前失败。
+ * 如何排查：删除 URL 凭据并换成完整 HTTPS 地址；不要对错误链接做浏览器端补救。
+ * 什么不能改：不能只检查 protocol，`https://user:pass@host` 同样会把敏感信息公开。
+ */
+function assertSafeMarkdownUrl(value: string): void {
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "https:" || url.username || url.password) throw new Error("unsafe url");
+  } catch {
+    throw new AppError("VALIDATION_FAILED", "Markdown 链接只允许不含凭据的 HTTPS", {
+      href: value,
+    });
+  }
+}
+
+/**
  * 校验个人判断使用的受限 Markdown，并返回可公开渲染的安全 HTML。
  *
  * 为什么存在：Markdown 来自 Agent 可写内容，必须把表达能力限定为已确认的文字排版，避免原始 HTML、图片和可执行协议进入公开站。
@@ -42,13 +62,7 @@ export function renderRestrictedMarkdown(source: string): string {
     throw new AppError("VALIDATION_FAILED", "个人判断不允许原始 HTML");
   }
   for (const match of source.matchAll(/!?\[[^\]]*\]\(([^)\s]+)/gu)) {
-    try {
-      if (new URL(match[1]).protocol !== "https:") throw new Error("not https");
-    } catch {
-      throw new AppError("VALIDATION_FAILED", "Markdown 链接只允许 HTTPS", {
-        href: match[1],
-      });
-    }
+    assertSafeMarkdownUrl(match[1]);
   }
 
   const tokens = markdown.parse(source, {});
@@ -64,11 +78,7 @@ export function renderRestrictedMarkdown(source: string): string {
     }
     if (token.type === "link_open") {
       const href = token.attrGet("href") ?? "";
-      try {
-        if (new URL(href).protocol !== "https:") throw new Error("not https");
-      } catch {
-        throw new AppError("VALIDATION_FAILED", "Markdown 链接只允许 HTTPS", { href });
-      }
+      assertSafeMarkdownUrl(href);
     }
     if (token.children) queue.push(...token.children);
   }

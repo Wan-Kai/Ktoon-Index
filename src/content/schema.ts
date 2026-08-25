@@ -10,7 +10,7 @@ export type CategoryId = (typeof CATEGORY_IDS)[number];
 export type Rating = (typeof RATINGS)[number];
 export type EntryStatus = (typeof ENTRY_STATUSES)[number];
 
-const idSchema = z
+export const entryIdSchema = z
   .string()
   .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "ID 只能使用小写字母、数字和单个连字符");
 
@@ -46,7 +46,7 @@ export const referenceLinkSchema = sourceLinkSchema.extend({
 });
 
 export const createEntryInputSchema = z.object({
-  id: idSchema.optional(),
+  id: entryIdSchema.optional(),
   title: z.string().trim().min(1, "标题不能为空"),
   summary: z.string().trim().min(1, "摘要不能为空"),
   category: z.enum(CATEGORY_IDS),
@@ -58,7 +58,7 @@ export const createEntryInputSchema = z.object({
 });
 
 export const entrySchema = z.object({
-  id: idSchema,
+  id: entryIdSchema,
   title: z.string().trim().min(1),
   summary: z.string().trim().min(1),
   category: z.enum(CATEGORY_IDS),
@@ -123,14 +123,14 @@ export function slugifyTitle(title: string): string {
     throw new AppError("VALIDATION_FAILED", "标题无法自动生成 ID，请显式提供 id");
   }
 
-  return idSchema.parse(id);
+  return entryIdSchema.parse(id);
 }
 
 /**
  * 校验创建 JSON 并注入只允许系统维护的字段。
  *
  * 为什么存在：调用者不能伪造版本、状态和时间；所有写入口必须共享同一创建规则。
- * 数据如何流动：未知输入先经过 Zod，随后规范化 ID/标签，并用同一时钟写入 version=1、published 和两个时间字段。
+ * 数据如何流动：未知输入先经过 Zod，随后规范化 ID、标签和正文首尾空白，并用同一时钟写入 version=1、published 和两个时间字段。
  * 何时失败：字段、枚举、HTTPS URL、ID 或标签不合法时统一抛出 `VALIDATION_FAILED`。
  * 如何排查：读取 details 中的 Zod issues，修正原始 JSON 后重新执行；失败发生在 GitHub 写入之前。
  * 什么不能改：不能允许输入覆盖 version、status、addedAt 或 updatedAt，也不能把校验推迟到远端提交之后。
@@ -155,7 +155,7 @@ export function createEntry(input: unknown, now = new Date()): Entry {
     updatedAt: timestamp,
     source: parsed.data.source ?? null,
     references: parsed.data.references,
-    personalTake: parsed.data.personal_take,
+    personalTake: parsed.data.personal_take.trim(),
   };
 
   const validated = entrySchema.safeParse(entry);

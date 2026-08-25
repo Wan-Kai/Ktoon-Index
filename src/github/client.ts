@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 
-import { AppError, parseEntry, type Entry } from "../content/index.ts";
+import { AppError, entryIdSchema, parseEntry, type Entry } from "../content/index.ts";
 
 export const GITHUB_OWNER = "Wan-Kai";
 export const GITHUB_REPOSITORY = "Ktoon-Index";
@@ -51,6 +51,19 @@ function isNotFound(result: GhResult): boolean {
 }
 
 /**
+ * 把 GitHub 权限失败与普通 API/网络失败分成可恢复错误码。
+ *
+ * 为什么存在：Agent 面对 FORBIDDEN 应停止重试并修复权限，面对 GITHUB_ERROR 才适合检查网络或服务状态。
+ * 数据如何流动：只检查 gh 已脱敏的 stderr 状态描述，不读取 token 或进程环境。
+ * 何时失败：GitHub 改变错误文本时可能回落为 GITHUB_ERROR，但不会误授予权限或继续写入。
+ * 如何排查：对照 gh 命令退出码和 GitHub HTTP 状态，必要时扩充明确的状态匹配测试。
+ * 什么不能改：不能把未知失败默认成 FORBIDDEN，也不能通过重跑写请求来猜测错误类型。
+ */
+function errorCodeFor(result: GhResult): "FORBIDDEN" | "GITHUB_ERROR" {
+  return /(?:HTTP 403|Forbidden)/iu.test(result.stderr) ? "FORBIDDEN" : "GITHUB_ERROR";
+}
+
+/**
  * 固定项目的 GitHub 内容客户端。
  *
  * 为什么存在：内容模块不应知道 GitHub 命令细节；未来 MCP 或测试 adapter 可以复用领域层而不复制校验。
@@ -62,6 +75,15 @@ function isNotFound(result: GhResult): boolean {
 export class GitHubContentClient {
   constructor(private readonly runGh: GhRunner = defaultGhRunner) {}
 
+  /**
+   * 检查当前 gh 身份是否能写固定仓库 main。
+   *
+   * 为什么存在：create/get 前要尽早区分本地认证问题与内容问题，避免把 401/403 混成普通 GitHub 失败。
+   * 数据如何流动：先执行本机 gh auth status，再读取固定仓库 default_branch 与当前身份 permissions.push。
+   * 何时失败：gh 未登录返回 AUTH_REQUIRED；仓库不可读、分支不符或没有 push 权限返回 FORBIDDEN/GITHUB_ERROR。
+   * 如何排查：运行 `gh auth status` 与只读 `gh api repos/Wan-Kai/Ktoon-Index`，不要打印 token。
+   * 什么不能改：不能只相信本地 git remote，也不能允许调用者传入另一个仓库或分支。
+   */
   doctor(): { authenticated: true; repository: string; branch: string; writable: true } {
     const auth = this.runGh(["auth", "status"]);
     if (auth.status !== 0) {
@@ -72,7 +94,7 @@ export class GitHubContentClient {
 
     const repo = this.runGh(["api", repositoryEndpoint(), "--jq", "{default_branch,permissions}"]);
     if (repo.status !== 0) {
-      const code = /(?:HTTP 403|Forbidden)/iu.test(repo.stderr) ? "FORBIDDEN" : "GITHUB_ERROR";
+      const code = errorCodeFor(repo);
       throw new AppError(code, "无法读取固定 GitHub 仓库", { stderr: repo.stderr.trim() });
     }
     const data = JSON.parse(repo.stdout) as {
@@ -91,8 +113,17 @@ export class GitHubContentClient {
     };
   }
 
+  /**
+   * 从 GitHub Contents API 读取并校验一份权威条目。
+   *
+   * 为什么存在：get、create 判重和后续版本写入必须共享同一远端解析路径，不能读取本地工作区副本。
+   * 数据如何流动：统一 ID Schema 生成固定内容路径，GET main 上的 base64 内容，解码后交给 parseEntry，并返回文件 SHA。
+   * 何时失败：ID 非法、404、API 异常、响应编码异常或 Markdown 损坏时抛出稳定 AppError。
+   * 如何排查：先 doctor，再用只读 gh api 检查路径；Markdown 错误按内容模块提示修复。
+   * 什么不能改：不能接受目录穿越、自动回退本地文件或忽略 parseEntry 错误。
+   */
   getEntry(id: string): RemoteEntry {
-    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(id)) {
+    if (!entryIdSchema.safeParse(id).success) {
       throw new AppError("VALIDATION_FAILED", "ID 格式不合法", { id });
     }
     const path = entryPath(id);
@@ -121,6 +152,15 @@ export class GitHubContentClient {
     return { entry: parseEntry(source), sha: response.sha, path };
   }
 
+  /**
+   * 在远端 ID 不存在时用单次 PUT 创建一份 Markdown 与一个内容 commit。
+   *
+   * 为什么存在：M1 要保证一个写操作对应一个文件和一个 Git commit，并把版本与 request ID 留在可审计 trailer 中。
+   * 数据如何流动：先通过 getEntry 判重，再把已校验 Markdown base64 编码，PUT 到固定 main，最后只返回 commit SHA 与路径。
+   * 何时失败：已有 ID 返回 ID_CONFLICT；权限、网络或异常 API 响应返回 FORBIDDEN/GITHUB_ERROR，绝不自动重试。
+   * 如何排查：根据错误码检查远端文件、doctor 与 GitHub API 响应；请求失败后先 get 确认是否已落盘。
+   * 什么不能改：不能覆盖现有 SHA、不能改写本地工作区、不能创建 PR，也不能在 M3 幂等机制完成前自动重试。
+   */
   createEntry(
     entry: Entry,
     markdown: string,
@@ -152,7 +192,7 @@ export class GitHubContentClient {
       payload,
     );
     if (result.status !== 0) {
-      const code = /(?:HTTP 403|Forbidden)/iu.test(result.stderr) ? "FORBIDDEN" : "GITHUB_ERROR";
+      const code = errorCodeFor(result);
       throw new AppError(code, "GitHub 创建条目失败", {
         stderr: result.stderr.trim(),
         id: entry.id,

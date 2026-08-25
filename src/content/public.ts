@@ -54,7 +54,15 @@ export function projectPublicEntry(entry: Entry, ordinal = 1) {
   };
 }
 
-/** 生成首页条目所需的最小公开字段。 */
+/**
+ * 生成首页条目所需的最小公开字段。
+ *
+ * 为什么存在：首页不需要正文、来源和维护字段，白名单投影可以限制公开面并保持搜索数据轻量。
+ * 数据如何流动：已校验 Entry 只提取排序、展示和详情跳转字段，URL 固定指向通用详情页的不可变 ID。
+ * 何时失败：调用方传入未校验对象可能导致字段缺失；正常路径必须先经过 parseEntry 或 createEntry。
+ * 如何排查：对照 data/index.json 与对应 Markdown，确认 build-content 没有绕过内容模块。
+ * 什么不能改：不能对象展开 Entry，也不能把 version、status、SHA 或请求信息加入首页 JSON。
+ */
 export function projectIndexEntry(entry: Entry) {
   return {
     id: entry.id,

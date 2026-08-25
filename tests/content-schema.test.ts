@@ -45,11 +45,15 @@ describe("M1 Entry Schema", () => {
   });
 
   it("Frontmatter 与领域对象可以无损往返", () => {
-    const entry = createEntry(createInput, new Date("2026-08-25T08:00:00.000Z"));
+    const entry = createEntry(
+      { ...createInput, personal_take: "\n  前导与尾随会在领域入口规范化。  \n" },
+      new Date("2026-08-25T08:00:00.000Z"),
+    );
     const markdown = serializeEntry(entry);
 
     expect(markdown).toContain("id: mcp-inspector");
     expect(markdown).toContain("added_at: '2026-08-25T08:00:00.000Z'");
+    expect(entry.personalTake).toBe("前导与尾随会在领域入口规范化。");
     expect(parseEntry(markdown)).toEqual(entry);
   });
 
@@ -69,6 +73,9 @@ describe("M1 Entry Schema", () => {
     expect(() => renderRestrictedMarkdown("[危险](javascript:alert(1))")).toThrowError(
       expect.objectContaining({ code: "VALIDATION_FAILED" }),
     );
+    expect(() =>
+      renderRestrictedMarkdown("[凭据](https://user:pass@example.com/path)"),
+    ).toThrowError(expect.objectContaining({ code: "VALIDATION_FAILED" }));
   });
 
   it("公开投影不包含维护字段", () => {

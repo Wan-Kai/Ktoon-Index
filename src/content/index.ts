@@ -7,6 +7,7 @@ export {
   RATINGS,
   createEntry,
   createEntryInputSchema,
+  entryIdSchema,
   entrySchema,
   normalizeTags,
   slugifyTitle,
