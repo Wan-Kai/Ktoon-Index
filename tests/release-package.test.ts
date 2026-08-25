@@ -16,7 +16,7 @@ async function createReleaseFixture(): Promise<string> {
   const projected = projectContent(await readAuthoritativeEntries());
   await writeFile(
     resolve(directory, "index.html"),
-    '<script src="./app.js"></script><link href="./..asset.css" rel="stylesheet">',
+    '<!-- <base href="./ignored/"> --><script src="./app.js"></script><link href="./..asset.css" rel="stylesheet">',
   );
   await writeFile(resolve(directory, "detail.html"), '<a href="./">Index</a>');
   await writeFile(resolve(directory, "app.js"), "void 0;\n");
@@ -78,6 +78,7 @@ describe("M5 发布包校验", () => {
     await mkdir(resolve(directory, "assets/private"), { recursive: true });
     await mkdir(resolve(directory, "%2e%2e"), { recursive: true });
     await mkdir(resolve(directory, "&#x2e;&#x2e;"), { recursive: true });
+    await mkdir(resolve(directory, "&period;&period;"), { recursive: true });
     await mkdir(resolve(directory, "sub"), { recursive: true });
     await writeFile(
       resolve(directory, "data/entries/nested/secret.json"),
@@ -94,10 +95,11 @@ describe("M5 发布包校验", () => {
     );
     await writeFile(resolve(directory, "%2e%2e/outside.js"), "void 0;\n");
     await writeFile(resolve(directory, "&#x2e;&#x2e;/outside.js"), "void 0;\n");
+    await writeFile(resolve(directory, "&period;&period;/outside.js"), "void 0;\n");
     await writeFile(resolve(directory, "base-target.js"), "void 0;\n");
     await writeFile(
       resolve(directory, "index.html"),
-      '<base href="./sub/"><script src=./missing-extra.js></script><script src="https:/missing-root.js"></script><script src="./%2e%2e/outside.js"></script><script src="./&#x2e;&#x2e;/outside.js"></script><script src="./base-target.js"></script><link href="./style.css"><img src="./assets/escape.txt" srcset="data:image/svg+xml,%3Csvg%3E 1x, ./missing-srcset.png 2x">',
+      '<base href="./sub/"><script src=./missing-extra.js></script><script src="https:/missing-root.js"></script><script src="./%2e%2e/outside.js"></script><script src="./&#x2e&#x2e/outside.js"></script><script src="./&period;&period;/outside.js"></script><script src="./base-target.js"></script><link href="./style.css"><img src="./assets/escape.txt" srcset="data:image/svg+xml,%3Csvg%3E 1x, ./missing-srcset.png 2x">',
     );
     await writeFile(resolve(directory, "style.css"), '@import "./missing-import.css";');
     await symlink("/etc/hosts", resolve(directory, "assets/escape.txt"));

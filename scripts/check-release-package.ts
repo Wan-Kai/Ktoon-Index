@@ -1,6 +1,7 @@
 import { lstat, readFile, readdir, realpath } from "node:fs/promises";
 import { dirname, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import { parse, type DefaultTreeAdapterMap } from "parse5";
 
 import { AppError } from "../src/content/index.ts";
 import { projectContent, readAuthoritativeEntries } from "./build-content.ts";
@@ -82,47 +83,32 @@ function extractSrcsetUrls(source: string): string[] {
 }
 
 /**
- * 将 HTML 属性中的常用字符实体还原为浏览器参与 URL 解析的文本。
- *
- * 为什么存在：浏览器会在解析 href/src/srcset 前解码实体，校验器必须使用同一输入。数值实体与五个基础命名实体会被还原；未知或畸形实体原样保留，不抛错。排查时比较构建后属性与 DOM URL。不能在路径检查之后再解码，否则编码的点段可以绕过站点前缀。
- */
-function decodeHtmlAttribute(source: string): string {
-  const named: Record<string, string> = {
-    amp: "&",
-    apos: "'",
-    gt: ">",
-    lt: "<",
-    quot: '"',
-  };
-  return source.replace(/&(?:#(\d+)|#x([\da-f]+)|([a-z]+));/giu, (entity, decimal, hex, name) => {
-    if (decimal || hex) {
-      const codePoint = Number.parseInt(decimal ?? hex, decimal ? 10 : 16);
-      if (codePoint > 0x10ffff || (codePoint >= 0xd800 && codePoint <= 0xdfff)) return entity;
-      return String.fromCodePoint(codePoint);
-    }
-    return named[String(name).toLocaleLowerCase()] ?? entity;
-  });
-}
-
-/**
  * 提取 HTML 与 CSS 中会由浏览器加载的静态引用。
  *
- * 为什么存在：Pages 子路径和缺失资产必须在上传前发现。HTML 支持带引号或无引号的 src/href/poster/data/srcset，CSS 支持 url() 与字符串 @import；其他文件返回空集合。函数不会主动抛错，畸形且无法匹配的 HTML/CSS 会被忽略，因此上游仍必须由 Vite 生成合法源码；排查时查看构建后文件。不能收窄为双引号属性或只检查 url()，否则合法语法可绕过资源闭环。
+ * 为什么存在：Pages 子路径和缺失资产必须在上传前发现。HTML 交给 parse5，获得与浏览器一致的属性实体、注释和无引号解析；CSS 支持 url() 与字符串 @import。parse5 会按 HTML 标准恢复畸形标记，CSS 未匹配片段会被忽略；排查时查看构建后源码。不能换回正则解析 HTML，也不能只检查 CSS url()。
  */
-function extractReferences(file: string, source: string): string[] {
+function extractReferences(
+  file: string,
+  source: string,
+): { references: string[]; hasBase: boolean } {
   if (file.endsWith(".html")) {
-    const attributes = [
-      ...source.matchAll(
-        /\b(?:src|href|poster|data)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/giu,
-      ),
-    ].map((match) => decodeHtmlAttribute(match[1] ?? match[2] ?? match[3]));
-    const srcsets = [
-      ...source.matchAll(/\bsrcset\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/giu),
-    ].flatMap((match) => {
-      const value = decodeHtmlAttribute(match[1] ?? match[2] ?? match[3]);
-      return extractSrcsetUrls(value);
-    });
-    return [...new Set([...attributes, ...srcsets])];
+    const references: string[] = [];
+    let hasBase = false;
+    const visit = (node: DefaultTreeAdapterMap["node"]): void => {
+      if ("attrs" in node) {
+        if (node.tagName === "base") hasBase = true;
+        for (const attribute of node.attrs) {
+          if (["src", "href", "poster", "data"].includes(attribute.name)) {
+            references.push(attribute.value);
+          } else if (attribute.name === "srcset") {
+            references.push(...extractSrcsetUrls(attribute.value));
+          }
+        }
+      }
+      if ("childNodes" in node) node.childNodes.forEach(visit);
+    };
+    visit(parse(source));
+    return { references: [...new Set(references)], hasBase };
   }
   if (file.endsWith(".css")) {
     const urls = [...source.matchAll(/url\(\s*["']?([^"')]+)["']?\s*\)/giu)].map(
@@ -131,15 +117,15 @@ function extractReferences(file: string, source: string): string[] {
     const imports = [...source.matchAll(/@import\s+(?!url\()(?:"([^"]+)"|'([^']+)')/giu)].map(
       (match) => match[1] ?? match[2],
     );
-    return [...new Set([...urls, ...imports])];
+    return { references: [...new Set([...urls, ...imports])], hasBase: false };
   }
-  return [];
+  return { references: [], hasBase: false };
 }
 
 /**
  * 验证单个本地引用存在且真实路径仍位于发布目录内。
  *
- * 为什么存在：词法 `../` 检查无法复现浏览器的点段、百分号编码和同源根路径语义。引用必须先经过属性实体解码，再以 WHATWG URL 在虚拟 `/__release__/` 前缀解析；解析后确认跨域的 HTTP(S) 才作为外链跳过，同源引用必须保留前缀。随后 decodeURIComponent 映射文件，并依次做词法 containment 与 realpath/symlink containment。URL、百分号或真实路径失败会聚合为 BUILD_FAILED；排查时比较浏览器最终 URL。不能调整这套顺序或在 URL 解析前按字符串跳过外链。
+ * 为什么存在：词法 `../` 检查无法复现浏览器的点段、百分号编码和同源根路径语义。HTML 属性已由 parse5 按浏览器规则解码，随后引用以 WHATWG URL 在虚拟 `/__release__/` 前缀解析；所有非 HTTP(S) scheme 直接跳过，HTTP(S) 仅在解析后确认跨域时作为外链跳过，同源引用必须保留前缀。最后 decodeURIComponent 映射文件，并依次做词法 containment 与 realpath/symlink containment。URL、百分号或真实路径失败会聚合为 BUILD_FAILED；排查时比较浏览器最终 URL。不能调整顺序或在 URL 解析前按字符串跳过外链。
  */
 async function checkLocalReference(
   outputDirectory: string,
@@ -281,10 +267,12 @@ export async function verifyReleasePackage(
     (candidate) => candidate.endsWith(".html") || candidate.endsWith(".css"),
   )) {
     const source = await readFile(file, "utf8");
-    if (file.endsWith(".html") && /<base\b/iu.test(source)) {
+    const extracted = extractReferences(file, source);
+    // 项目依赖相对路径适配 GitHub Pages 子目录；真实 base 元素会改写整页基准，因此明确禁止。
+    if (extracted.hasBase) {
       problems.push(`发布 HTML 不允许 base 元素：${relative(outputDirectory, file)}`);
     }
-    for (const reference of extractReferences(file, source)) {
+    for (const reference of extracted.references) {
       if (
         await checkLocalReference(outputDirectory, realOutputDirectory, file, reference, problems)
       ) {
