@@ -115,6 +115,44 @@ describe("M1 CLI 输出契约", () => {
         JSON.stringify({
           expected_version: 1,
           expected_sha: "a".repeat(40),
+          patch: { tags: [""] },
+        }),
+      );
+      await expect(
+        createProgram(client).parseAsync([
+          "node",
+          "ai-index",
+          "entry",
+          "update",
+          "mcp-inspector",
+          "--input",
+          input,
+        ]),
+      ).rejects.toMatchObject({ code: "VALIDATION_FAILED" });
+      writeFileSync(
+        input,
+        JSON.stringify({
+          expected_version: 1,
+          expected_sha: "a".repeat(40),
+          patch: { personal_take: "<script>alert(1)</script>" },
+        }),
+      );
+      await expect(
+        createProgram(client).parseAsync([
+          "node",
+          "ai-index",
+          "entry",
+          "update",
+          "mcp-inspector",
+          "--input",
+          input,
+        ]),
+      ).rejects.toMatchObject({ code: "VALIDATION_FAILED" });
+      writeFileSync(
+        input,
+        JSON.stringify({
+          expected_version: 1,
+          expected_sha: "a".repeat(40),
           patch: { title: "Changed" },
         }),
       );

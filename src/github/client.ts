@@ -174,13 +174,13 @@ function errorCodeFor(result: GhResult): "FORBIDDEN" | "GITHUB_ERROR" {
 }
 
 /**
- * 固定项目的 GitHub 内容客户端。
+ * 固定项目的 GitHub 内容与受控写入客户端。
  *
- * 为什么存在：内容模块不应知道 GitHub 命令细节；未来 MCP 或测试 adapter 可以复用领域层而不复制校验。
- * 数据如何流动：客户端只读取或 PUT 单个 `content/entries/<id>.md`，目标始终是固定仓库 main，不接触当前工作区。
- * 何时失败：认证、权限、网络、ID 冲突或 GitHub API 错误会变成稳定 AppError。
- * 如何排查：先执行 doctor；若是 GITHUB_ERROR，再用 GitHub Actions/CLI 日志中的 request 信息定位。
- * 什么不能改：M1 不能接受任意 owner/repo/branch 参数，不能创建 PR，也不能自动合并或重试冲突。
+ * 为什么存在：内容模块不应知道 GitHub 命令细节；M3 的全历史幂等、版本/SHA CAS 和单文件 commit 必须在一个 adapter 内强制。
+ * 数据如何流动：读取固定 main/历史 ref；写入先扫 request 历史、校验当前版本与 blob SHA，再用 Contents PUT 修改唯一 Markdown 并在不确定响应后恢复。
+ * 何时失败：认证、权限、网络、历史形状/审计不一致、ID/版本冲突或 GitHub API 异常都会变成稳定 AppError。
+ * 如何排查：先 doctor/get，再按 request ID 检查 commit trailers、files 与历史文件；禁止为排查直接重放新写请求。
+ * 什么不能改：不能接受任意 owner/repo/branch、创建 PR、写本地工作区、一次改多文件或自动合并版本冲突。
  */
 export class GitHubContentClient {
   constructor(private readonly runGh: GhRunner = defaultGhRunner) {}
@@ -304,11 +304,25 @@ export class GitHubContentClient {
       });
     }
     const payload = parseGitHubJson<unknown>(result, "GitHub commit 历史");
-    const pages = Array.isArray(payload) && payload.every(Array.isArray) ? payload : [payload];
-    const commits = pages.flatMap((page) => (Array.isArray(page) ? page : [])) as Array<{
+    if (!Array.isArray(payload)) {
+      throw new AppError("GITHUB_ERROR", "GitHub commit 历史响应形状异常");
+    }
+    const pages = payload.every(Array.isArray) ? payload : [payload];
+    const commits = pages.flatMap((page) => page) as Array<{
       sha?: string;
       commit?: { message?: string };
     }>;
+    if (
+      commits.some(
+        (commit) =>
+          typeof commit !== "object" ||
+          commit === null ||
+          typeof commit.sha !== "string" ||
+          typeof commit.commit?.message !== "string",
+      )
+    ) {
+      throw new AppError("GITHUB_ERROR", "GitHub commit 历史条目形状异常");
+    }
     const matches = commits.filter(
       (commit) => trailer(commit.commit?.message ?? "", "Request-ID") === requestId,
     );
@@ -346,11 +360,50 @@ export class GitHubContentClient {
   }
 
   /**
+   * 核对 request commit 确实只修改目标 Markdown 且操作类型与文件状态一致。
+   *
+   * 为什么存在：trailers 只是声明；若 commit 实际改了其他路径或 create/update 类型不符，仅凭 message 会把伪造历史当成幂等成功。
+   * 数据如何流动：读取单个 commit 详情，要求 files 恰好一项、filename 等于固定 entry path，并校验 create=added、其余操作=modified。
+   * 何时失败：API/JSON 异常、文件列表缺失、多文件 commit、错误路径或错误 change status 时返回 GITHUB_ERROR。
+   * 如何排查：打开 commit Files changed 核对唯一文件及 added/modified；异常历史不能靠修改 trailer 修复。
+   * 什么不能改：不能只看 commit subject/trailer，也不能允许额外生成文件或把 rename/remove 解释成合法内容操作。
+   */
+  private verifyRequestCommit(commit: RequestCommit): void {
+    const result = this.runGh([
+      "api",
+      "--method",
+      "GET",
+      repositoryEndpoint(`/commits/${commit.sha}`),
+    ]);
+    if (result.status !== 0) {
+      throw new AppError(errorCodeFor(result), "读取 request commit 详情失败", {
+        commit: commit.sha,
+        stderr: result.stderr.trim(),
+      });
+    }
+    const detail = parseGitHubJson<{
+      files?: Array<{ filename?: string; status?: string }>;
+    }>(result, "GitHub request commit");
+    const expectedFileStatus = commit.operation === "create" ? "added" : "modified";
+    if (
+      detail.files?.length !== 1 ||
+      detail.files[0]?.filename !== entryPath(commit.entryId) ||
+      detail.files[0]?.status !== expectedFileStatus
+    ) {
+      throw new AppError("GITHUB_ERROR", "request commit 实际文件变更与 trailers 不一致", {
+        commit: commit.sha,
+        operation: commit.operation,
+        files: detail.files,
+      });
+    }
+  }
+
+  /**
    * 把历史 request commit 还原为稳定写结果，并阻止 request ID 跨操作复用。
    *
    * 为什么存在：幂等不仅是“不再写”，还必须向调用方返回原 commit、原版本和原 blob SHA，才能可靠恢复超时调用。
-   * 数据如何流动：查找 request trailer；若存在则核对 operation/id，从该 commit ref 读取文件并核对 version，组装 idempotent=true 结果。
-   * 何时失败：同一 request ID 被另一个条目/操作占用，或历史内容与 trailer 版本不一致时返回 VALIDATION_FAILED/GITHUB_ERROR。
+   * 数据如何流动：查找 request trailer；若存在则核对 operation/id、commit 唯一文件及 added/modified，再从该 ref 读取 Entry 并核对 ID/version/status。
+   * 何时失败：request ID 跨条目/操作复用、commit 多文件/错路径，或历史 Entry 与 trailer 生命周期不一致时返回 VALIDATION_FAILED/GITHUB_ERROR。
    * 如何排查：搜索 Request-ID 对应 commit 并核对 trailers；不要通过更改 expected_version 来强行复用旧 ID。
    * 什么不能改：不能把 request ID 只限定在单文件历史，也不能用当前 main 内容替代原 commit 内容。
    */
@@ -368,11 +421,23 @@ export class GitHubContentClient {
         actual: { id: commit.entryId, operation: commit.operation },
       });
     }
+    this.verifyRequestCommit(commit);
     const remote = this.getEntryAtRef(id, commit.sha);
-    if (remote.entry.version !== commit.version) {
-      throw new AppError("GITHUB_ERROR", "request commit 版本与文件内容不一致", {
+    const expectedStatus = commit.operation === "delete" ? "recycled" : "published";
+    if (
+      remote.entry.id !== commit.entryId ||
+      remote.entry.version !== commit.version ||
+      remote.entry.status !== expectedStatus ||
+      (commit.operation === "create" && remote.entry.version !== 1)
+    ) {
+      throw new AppError("GITHUB_ERROR", "request commit trailers 与历史文件内容不一致", {
         request_id: requestId,
         commit: commit.sha,
+        entry: {
+          id: remote.entry.id,
+          version: remote.entry.version,
+          status: remote.entry.status,
+        },
       });
     }
     return {
@@ -428,10 +493,53 @@ export class GitHubContentClient {
   }
 
   /**
+   * 解析 PUT 成功回执；回执损坏时用 request 历史确认 GitHub 是否已经提交。
+   *
+   * 为什么存在：网络代理可能在 GitHub 已落库后截断 stdout；这与非零超时同样属于不确定结果，不能直接报错诱导调用方换新 ID。
+   * 数据如何流动：先解析 content/commit SHA；完整则返回新写结果，解析或字段失败则二次扫描 request 历史，命中时返回原 commit 的 idempotent 结果。
+   * 何时失败：响应损坏且历史没有对应 request，或历史本身异常时返回 GITHUB_ERROR，不猜测成功也不再次 PUT。
+   * 如何排查：用同 request ID 重试并检查 commits API；若 GitHub 无 commit，再检查原 PUT 响应与代理日志。
+   * 什么不能改：不能在响应异常时生成伪 SHA、自动换 request ID 或跳过历史文件/commit 详情核验。
+   */
+  private finalizeWriteResponse(
+    result: GhResult,
+    entry: Entry,
+    requestId: string,
+    operation: WriteOperation,
+    path: string,
+  ): GitHubWriteResult {
+    try {
+      const response = parseGitHubJson<{
+        content?: { sha?: string };
+        commit?: { sha?: string };
+      }>(result, `GitHub ${operation}`);
+      if (!response.commit?.sha || !response.content?.sha) {
+        throw new AppError("GITHUB_ERROR", "GitHub 写入响应缺少 commit 或 blob SHA", {
+          id: entry.id,
+          operation,
+        });
+      }
+      return {
+        entry,
+        sha: response.content.sha,
+        path,
+        commitSha: response.commit.sha,
+        requestId,
+        operation,
+        idempotent: false,
+      };
+    } catch (error) {
+      const recovered = this.resolveIdempotent(requestId, entry.id, operation);
+      if (recovered) return recovered;
+      throw error;
+    }
+  }
+
+  /**
    * 在远端 ID 不存在时用单次 PUT 创建一份 Markdown 与一个内容 commit。
    *
    * 为什么存在：create 要保证一个请求对应一个文件和一个 Git commit，并让自动/显式 ID、回收 ID 冲突与超时重试走同一路径。
-   * 数据如何流动：先查 request 历史，再通过 getEntry 判重，把已校验 Markdown base64 编码后 PUT main，返回 commit/blob SHA 与幂等标记。
+   * 数据如何流动：先复验 Entry 与 Markdown 一致，再查 request 历史、通过 getEntry 判重，把内容 base64 编码后 PUT main；回执异常进入统一历史恢复。
    * 何时失败：已发布或已回收 ID 返回 ID_CONFLICT；权限、网络、异常响应或 request ID 跨操作复用返回稳定错误。
    * 如何排查：根据错误码检查远端文件与 commit trailers；不确定 PUT 是否成功时用同 request ID 原样重试。
    * 什么不能改：不能覆盖现有 SHA、不能改写本地工作区、不能创建 PR，也不能用新 request ID 重试一次不确定的写入。
@@ -476,33 +584,14 @@ export class GitHubContentClient {
         },
       );
     }
-    const response = parseGitHubJson<{
-      content?: { sha?: string };
-      commit?: { sha?: string };
-    }>(result, "GitHub 创建");
-    if (!response.commit?.sha || !response.content?.sha) {
-      const recovered = this.resolveIdempotent(requestId, entry.id, "create");
-      if (recovered) return recovered;
-      throw new AppError("GITHUB_ERROR", "GitHub 创建响应缺少 commit 或 blob SHA", {
-        id: entry.id,
-      });
-    }
-    return {
-      entry,
-      sha: response.content.sha,
-      path,
-      commitSha: response.commit.sha,
-      requestId,
-      operation: "create",
-      idempotent: false,
-    };
+    return this.finalizeWriteResponse(result, entry, requestId, "create", path);
   }
 
   /**
    * 以版本与 blob SHA 双重 CAS 执行 update/delete/restore 的单文件 commit。
    *
    * 为什么存在：领域版本阻止旧业务状态覆盖，GitHub SHA 阻止同版本文件在远端被旁路修改；二者必须在同一写路径强制执行。
-   * 数据如何流动：先解析幂等历史，再读取 main、比较 version/SHA，调用纯领域 mutate 生成下一版本，序列化后带旧 SHA PUT；失败后再查一次 request 恢复超时成功。
+   * 数据如何流动：先校验 ID/version/SHA/request 并解析幂等历史，再读取 main 做双重比较；纯领域 mutate 生成下一版本后复验 ID/version/addedAt/status/updatedAt，序列化并带旧 SHA PUT，任何不确定回执再查 request 历史。
    * 何时失败：条目不存在、护栏冲突、mutate 校验失败、GitHub 409/422、权限或异常响应时抛出稳定错误且不自动合并。
    * 如何排查：先 get 获取最新 version/SHA；若请求可能超时，用同 request ID 原样重试；其他错误检查 commit trailers 与 API stderr。
    * 什么不能改：不能省略 SHA、自动刷新 expected 值后继续、一次写多个文件、改本地工作区或对冲突做自动重试。
@@ -572,26 +661,7 @@ export class GitHubContentClient {
         { stderr: result.stderr.trim(), id: options.id },
       );
     }
-    const response = parseGitHubJson<{
-      content?: { sha?: string };
-      commit?: { sha?: string };
-    }>(result, "GitHub 修改");
-    if (!response.commit?.sha || !response.content?.sha) {
-      const recovered = this.resolveIdempotent(options.requestId, options.id, options.operation);
-      if (recovered) return recovered;
-      throw new AppError("GITHUB_ERROR", "GitHub 修改响应缺少 commit 或 blob SHA", {
-        id: options.id,
-      });
-    }
-    return {
-      entry: next,
-      sha: response.content.sha,
-      path,
-      commitSha: response.commit.sha,
-      requestId: options.requestId,
-      operation: options.operation,
-      idempotent: false,
-    };
+    return this.finalizeWriteResponse(result, next, options.requestId, options.operation, path);
   }
 }
 

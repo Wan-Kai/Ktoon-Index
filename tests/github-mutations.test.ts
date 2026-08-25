@@ -12,7 +12,11 @@ import {
 import { GitHubContentClient, type GhRunner } from "../src/github/index.ts";
 
 type Stored = { source: string; sha: string };
-type Commit = { sha: string; commit: { message: string } };
+type Commit = {
+  sha: string;
+  commit: { message: string };
+  files: Array<{ filename: string; status: string }>;
+};
 
 function fakeGitHub(seed: Entry[]) {
   const files = new Map(
@@ -22,11 +26,19 @@ function fakeGitHub(seed: Entry[]) {
   const snapshots = new Map<string, Map<string, Stored>>();
   let putCount = 0;
   let timeoutAfterNextPut = false;
+  let truncateNextPutResponse = false;
 
   const runner: GhRunner = (args, input) => {
     const endpoint = args.find((argument) => argument.startsWith("repos/")) ?? "";
     if (endpoint.endsWith("/commits")) {
       return { status: 0, stdout: JSON.stringify([commits]), stderr: "" };
+    }
+    const commitDetailSha = /\/commits\/([a-f0-9]{40})$/u.exec(endpoint)?.[1];
+    if (commitDetailSha) {
+      const commit = commits.find((candidate) => candidate.sha === commitDetailSha);
+      return commit
+        ? { status: 0, stdout: JSON.stringify(commit), stderr: "" }
+        : { status: 1, stdout: "", stderr: "HTTP 404: Not Found" };
     }
     const id = /\/contents\/content\/entries\/([a-z0-9-]+)\.md$/u.exec(endpoint)?.[1];
     if (!id) return { status: 1, stdout: "", stderr: "unexpected endpoint" };
@@ -62,11 +74,24 @@ function fakeGitHub(seed: Entry[]) {
       source: Buffer.from(payload.content, "base64").toString("utf8"),
       sha: blobSha,
     });
-    commits.unshift({ sha: commitSha, commit: { message: payload.message } });
+    commits.unshift({
+      sha: commitSha,
+      commit: { message: payload.message },
+      files: [
+        {
+          filename: `content/entries/${id}.md`,
+          status: current ? "modified" : "added",
+        },
+      ],
+    });
     snapshots.set(commitSha, new Map(files));
     if (timeoutAfterNextPut) {
       timeoutAfterNextPut = false;
       return { status: 1, stdout: "", stderr: "network timeout" };
+    }
+    if (truncateNextPutResponse) {
+      truncateNextPutResponse = false;
+      return { status: 0, stdout: "{truncated", stderr: "" };
     }
     return {
       status: 0,
@@ -81,6 +106,9 @@ function fakeGitHub(seed: Entry[]) {
     current: (id: string) => parseEntry(files.get(id)?.source ?? ""),
     timeoutAfterNextPut: () => {
       timeoutAfterNextPut = true;
+    },
+    truncateNextPutResponse: () => {
+      truncateNextPutResponse = true;
     },
   };
 }
@@ -206,6 +234,29 @@ describe("M3 GitHub 并发与幂等写入", () => {
     expect(github.getPutCount()).toBe(1);
   });
 
+  it("PUT 已提交但成功响应 JSON 截断时也会从历史恢复", () => {
+    const github = fakeGitHub([baseEntry()]);
+    const request = parseUpdateEntryRequest({
+      expected_version: 1,
+      expected_sha: "a".repeat(40),
+      patch: { summary: "Recovered from truncated response." },
+    });
+    github.truncateNextPutResponse();
+    const result = github.client.mutateEntry(
+      {
+        id: "mcp-inspector",
+        expectedVersion: 1,
+        expectedSha: request.expected_sha,
+        requestId: "123e4567-e89b-42d3-a456-426614174008",
+        operation: "update",
+      },
+      (current) => applyEntryUpdate(current, request),
+    );
+
+    expect(result).toMatchObject({ idempotent: true, entry: { version: 2 } });
+    expect(github.getPutCount()).toBe(1);
+  });
+
   it("同一 request ID 不能跨条目或跨操作复用", () => {
     const github = fakeGitHub([baseEntry()]);
     const request = parseUpdateEntryRequest({
@@ -275,5 +326,89 @@ describe("M3 GitHub 并发与幂等写入", () => {
         "123e4567-e89b-42d3-a456-426614174005",
       ),
     ).toThrowError(expect.objectContaining({ code: "ID_CONFLICT" }));
+  });
+
+  it("异常 commit 历史形状会停止 create，不会继续 PUT", () => {
+    let putCount = 0;
+    const runner: GhRunner = (args) => {
+      if (args.some((argument) => argument.endsWith("/commits"))) {
+        return { status: 0, stdout: JSON.stringify({ unexpected: true }), stderr: "" };
+      }
+      if (args.includes("PUT")) putCount += 1;
+      return { status: 1, stdout: "", stderr: "HTTP 404: Not Found" };
+    };
+    const client = new GitHubContentClient(runner);
+
+    expect(() =>
+      client.createEntry(
+        baseEntry(),
+        serializeEntry(baseEntry()),
+        "123e4567-e89b-42d3-a456-426614174009",
+      ),
+    ).toThrowError(expect.objectContaining({ code: "GITHUB_ERROR" }));
+    expect(putCount).toBe(0);
+  });
+
+  it("幂等恢复会拒绝 trailer 操作与历史文件状态不一致", () => {
+    const requestId = "123e4567-e89b-42d3-a456-426614174010";
+    const commitSha = "c".repeat(40);
+    const source = serializeEntry(baseEntry());
+    const runner: GhRunner = (args) => {
+      const endpoint = args.find((argument) => argument.startsWith("repos/")) ?? "";
+      if (endpoint.endsWith("/commits")) {
+        return {
+          status: 0,
+          stdout: JSON.stringify([
+            [
+              {
+                sha: commitSha,
+                commit: {
+                  message: [
+                    "content: delete mcp-inspector",
+                    "",
+                    "Operation: delete",
+                    "Entry-ID: mcp-inspector",
+                    "Content-Version: 1",
+                    `Request-ID: ${requestId}`,
+                  ].join("\n"),
+                },
+              },
+            ],
+          ]),
+          stderr: "",
+        };
+      }
+      if (endpoint.endsWith(`/commits/${commitSha}`)) {
+        return {
+          status: 0,
+          stdout: JSON.stringify({
+            files: [{ filename: "content/entries/mcp-inspector.md", status: "modified" }],
+          }),
+          stderr: "",
+        };
+      }
+      return {
+        status: 0,
+        stdout: JSON.stringify({
+          content: Buffer.from(source).toString("base64"),
+          encoding: "base64",
+          sha: "a".repeat(40),
+        }),
+        stderr: "",
+      };
+    };
+
+    expect(() =>
+      new GitHubContentClient(runner).mutateEntry(
+        {
+          id: "mcp-inspector",
+          expectedVersion: 1,
+          expectedSha: "a".repeat(40),
+          requestId,
+          operation: "delete",
+        },
+        (current) => current,
+      ),
+    ).toThrowError(expect.objectContaining({ code: "GITHUB_ERROR" }));
   });
 });

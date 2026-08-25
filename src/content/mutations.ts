@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { AppError } from "./errors.ts";
+import { renderRestrictedMarkdown } from "./markdown.ts";
 import {
   CATEGORY_IDS,
   RATINGS,
@@ -46,8 +47,8 @@ export type UpdateEntryRequest = z.infer<typeof updateEntryRequestSchema>;
  * 在访问 GitHub 前解析 update JSON 的并发护栏与 Merge Patch。
  *
  * 为什么存在：写操作只接受 JSON，未知字段、空 patch、非法 SHA 或字段清空必须在任何远端读取前失败。
- * 数据如何流动：unknown 进入严格 Zod Schema，得到 expected_version、expected_sha 和字段白名单 patch，随后才交给领域更新与 GitHub CAS。
- * 何时失败：护栏缺失、SHA/版本非法、必填字段为 null、数组类型错误或 patch 为空时返回 VALIDATION_FAILED。
+ * 数据如何流动：unknown 进入严格 Zod Schema；tags 随即 canonicalize，personal_take 先 trim 并执行受限 Markdown 校验，完整 patch 才交给领域更新与 GitHub CAS。
+ * 何时失败：护栏缺失、SHA/版本非法、必填字段为 null、数组/标签/Markdown 非法或 patch 为空时在零网络调用下返回 VALIDATION_FAILED。
  * 如何排查：对照错误 issues 修正 JSON；可选字段只允许 rating/source 使用 null，tags/references 要清空请传空数组。
  * 什么不能改：不能允许 patch 修改 id、version、status、added_at 或 updated_at，也不能静默忽略未知字段。
  */
@@ -56,7 +57,18 @@ export function parseUpdateEntryRequest(input: unknown): UpdateEntryRequest {
   if (!parsed.success) {
     throw new AppError("VALIDATION_FAILED", "update JSON 校验失败", parsed.error.issues);
   }
-  return parsed.data;
+  const patch = parsed.data.patch;
+  if (patch.personal_take !== undefined) {
+    renderRestrictedMarkdown(patch.personal_take.trim());
+  }
+  return {
+    ...parsed.data,
+    patch: {
+      ...patch,
+      ...(patch.tags === undefined ? {} : { tags: normalizeTags(patch.tags) }),
+      ...(patch.personal_take === undefined ? {} : { personal_take: patch.personal_take.trim() }),
+    },
+  };
 }
 
 /**

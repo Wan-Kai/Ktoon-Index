@@ -133,10 +133,10 @@ function entryTableRows(entries: Entry[]): TableRow[] {
 }
 
 /**
- * 从文件或 stdin 读取 create JSON，保证 CLI 不引入交互式隐藏状态。
+ * 从文件或 stdin 读取任一写操作 JSON，保证 CLI 不引入交互式隐藏状态。
  *
- * 为什么存在：Agent 写操作只接受结构化 JSON；支持 `--input -` 可让调用者通过管道传入而无需创建临时文件。
- * 数据如何流动：路径读取 UTF-8 或从 fd 0 读取，解析为 unknown 后交给统一 Entry Schema。
+ * 为什么存在：create、update、delete、restore 只接受结构化 JSON；支持 `--input -` 可让调用者通过管道传入而无需创建临时文件。
+ * 数据如何流动：路径读取 UTF-8 或从 fd 0 读取，解析为 unknown 后分别交给创建、Merge Patch 或并发护栏 Schema。
  * 何时失败：文件不存在、stdin 为空或 JSON 损坏时返回 `VALIDATION_FAILED`，不会触发 GitHub 请求。
  * 如何排查：先用 JSON 工具检查输入，再确认 `--input` 路径相对当前命令目录而不是仓库目录。
  * 什么不能改：不能接受 YAML、逐字段 flags 或自动修补损坏 JSON；写入契约必须唯一。
@@ -146,7 +146,7 @@ function readJsonInput(path: string): unknown {
     const source = path === "-" ? readFileSync(0, "utf8") : readFileSync(path, "utf8");
     return JSON.parse(source) as JsonRecord;
   } catch (error) {
-    throw new AppError("VALIDATION_FAILED", "无法读取 create JSON", {
+    throw new AppError("VALIDATION_FAILED", "无法读取写操作 JSON", {
       path,
       reason: error instanceof Error ? error.message : String(error),
     });
