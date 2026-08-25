@@ -169,7 +169,7 @@ function safeHref(value) {
  * 从内容构建产物加载首页读模型。
  *
  * 为什么存在：M4 页面不能保留任何条目常量，首页、分类入口与搜索必须完全消费二十份 Markdown 的公开投影。
- * 数据如何流动：请求 data/index.json，验证五个固定分类及顺序；若 URL 带合法 category 只保留该分类，后续渲染与搜索只读取 categories。
+ * 数据如何流动：请求 data/index.json，验证五个固定分类及顺序；若 URL 带合法 category，categories 只保留该分类用于页面渲染，allCategories 保留全量供全局搜索。
  * 何时失败：网络、JSON 或结构异常会抛错并在初始化入口显示失败，避免悄悄展示过期样例。
  * 如何排查：先访问 ./data/index.json，再运行 npm run build:content 检查生成日志。
  * 什么不能改：不能在 fetch 失败时注入演示数据，也不能允许未知 category 静默显示全站内容。
@@ -186,13 +186,15 @@ async function loadGeneratedIndex() {
   ) {
     throw new Error("index data has invalid categories");
   }
-  const selectedCategory = new URLSearchParams(window.location.search).get("category");
-  if (selectedCategory && !categoryIds.includes(selectedCategory)) {
+  const searchParams = new URLSearchParams(window.location.search);
+  const hasCategory = searchParams.has("category");
+  const selectedCategory = searchParams.get("category") ?? "";
+  if (hasCategory && !categoryIds.includes(selectedCategory)) {
     throw new Error("invalid category id");
   }
   allCategories = payload.categories;
-  state.selectedCategory = selectedCategory;
-  categories = selectedCategory
+  state.selectedCategory = hasCategory ? selectedCategory : null;
+  categories = hasCategory
     ? allCategories.filter((category) => category.id === selectedCategory)
     : allCategories;
 }
@@ -392,12 +394,22 @@ function filterCategoryEntries(entries) {
     .slice();
 
   if (state.categorySort === "added_at") {
-    return filtered.sort((left, right) => Date.parse(right.addedAt) - Date.parse(left.addedAt));
+    return filtered.sort((left, right) => {
+      const rightTime = Date.parse(right.addedAt);
+      const leftTime = Date.parse(left.addedAt);
+      return (Number.isNaN(rightTime) ? 0 : rightTime) -
+        (Number.isNaN(leftTime) ? 0 : leftTime);
+    });
   }
   const priority = { 夯: 3, 人上人: 2, NPC: 1 };
   return filtered.sort((left, right) => {
     const ratingDelta = (priority[right.rating] ?? 0) - (priority[left.rating] ?? 0);
-    return ratingDelta || Date.parse(right.addedAt) - Date.parse(left.addedAt);
+    const rightTime = Date.parse(right.addedAt);
+    const leftTime = Date.parse(left.addedAt);
+    return (
+      ratingDelta ||
+      (Number.isNaN(rightTime) ? 0 : rightTime) - (Number.isNaN(leftTime) ? 0 : leftTime)
+    );
   });
 }
 
@@ -446,13 +458,13 @@ function renderCategoryControls() {
 }
 
 /**
- * 生成首页第一期五个分类的语义结构。
+ * 生成首页或单分类页的语义结构。
  *
- * 为什么存在：首页只展示每类评分最高的三条，分类顺序和数量必须由同一份数据驱动。
- * 数据如何流动：读取 categories 与当前界面语言，写入 categoryStack；所有分类共享同一左右基准线，条目正文始终保持原语言。
- * 何时失败：缺少容器时会直接返回，避免脚本阻断搜索和语言切换之外的页面。
- * 如何排查：检查 #category-stack、分类 id，以及 selectTopEntries 是否为每类返回最多三条。
- * 什么不能改：Ideas 必须保持最后一项，且不能在这里添加运营模块或额外一级分类。
+ * 为什么存在：首页只展示每类评分最高三条，分类页则展示经过排序、单标签和时间条件处理后的完整列表，两种视图必须共享同一纸卡结构。
+ * 数据如何流动：读取 categories、selectedCategory 与当前界面语言；首页走 selectTopEntries，分类页走 filterCategoryEntries，并把无结果状态写入 categoryStack。
+ * 何时失败：缺少容器时直接返回；数据字段异常会由加载或构建校验阻断，分类筛选为空时只显示明确空态。
+ * 如何排查：检查 #category-stack、state.selectedCategory、三个分类筛选值，以及首页是否每类最多三条、分类页数量是否等于筛选结果。
+ * 什么不能改：首页不能受分类筛选影响，分类页不能截断为 Top 3；Ideas 必须保持最后一项，且不能增加额外一级分类。
  */
 function renderCategories() {
   if (!categoryStack) return;
