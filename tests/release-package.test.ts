@@ -24,7 +24,7 @@ async function createReleaseFixture(): Promise<string> {
   await writeFile(resolve(directory, "imported.css"), "body{}\n");
   await writeFile(
     resolve(directory, "conditional.css"),
-    '@import url("./imported.css") screen;@importurl("./ignored.css");\n',
+    '@import url("./imported.css") screen;@importurl("./ignored.css");@import\u00a0"./ignored-nbsp.css";@im\\\nport "./ignored-newline.css";\n',
   );
   await writeFile(
     resolve(directory, "data/index.json"),

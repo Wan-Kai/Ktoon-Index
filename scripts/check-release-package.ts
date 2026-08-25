@@ -159,11 +159,16 @@ function extractImportReference(source: string): string | undefined {
  */
 function resolveImportParameters(serializedRule: string): string | undefined {
   if (!serializedRule.startsWith("@")) return undefined;
+  const isCssWhitespace = (character: string): boolean => /[ \n\r\t\f]/u.test(character);
+  const isCssNameCodePoint = (character: string): boolean => {
+    const codePoint = character.codePointAt(0) ?? 0;
+    return /[-_a-z\d]/iu.test(character) || codePoint >= 0x80;
+  };
   let cursor = 1;
   let rawName = "";
   while (cursor < serializedRule.length) {
     const character = serializedRule[cursor];
-    if (/[-_\p{L}\p{N}]/u.test(character)) {
+    if (isCssNameCodePoint(character)) {
       rawName += character;
       cursor += 1;
       continue;
@@ -171,6 +176,7 @@ function resolveImportParameters(serializedRule: string): string | undefined {
     if (character !== "\\") break;
     const escapeStart = cursor;
     cursor += 1;
+    if (isCssWhitespace(serializedRule[cursor] ?? "")) return undefined;
     const hexStart = cursor;
     while (
       cursor < serializedRule.length &&
@@ -180,7 +186,7 @@ function resolveImportParameters(serializedRule: string): string | undefined {
       cursor += 1;
     }
     if (cursor === hexStart && cursor < serializedRule.length) cursor += 1;
-    if (cursor > hexStart && /\s/u.test(serializedRule[cursor] ?? "")) {
+    if (cursor > hexStart && isCssWhitespace(serializedRule[cursor] ?? "")) {
       if (serializedRule[cursor] === "\r" && serializedRule[cursor + 1] === "\n") cursor += 1;
       cursor += 1;
     }
@@ -188,7 +194,7 @@ function resolveImportParameters(serializedRule: string): string | undefined {
   }
   if (decodeCssEscapes(rawName).toLocaleLowerCase() !== "import") return undefined;
   while (cursor < serializedRule.length) {
-    if (/\s/u.test(serializedRule[cursor])) {
+    if (isCssWhitespace(serializedRule[cursor])) {
       cursor += 1;
       continue;
     }
