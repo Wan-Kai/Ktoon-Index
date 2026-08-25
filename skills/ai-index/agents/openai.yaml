@@ -1,0 +1,4 @@
+interface:
+  display_name: "AI Index 维护"
+  short_description: "通过受控 CLI 查询和维护 Ktoon Index 内容"
+  default_prompt: "使用 $ai-index 查询或维护我的 AI Index 条目。"

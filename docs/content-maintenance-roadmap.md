@@ -2,7 +2,7 @@
 
 本路线图把已经确认的内容维护方案拆成可独立验收的阶段。实施顺序遵循一条原则：先让一个真实条目从 Markdown 完整流向现有页面，再补齐全部 CRUD、Skill 和自动发布，避免基础设施先行而迟迟没有可用闭环。
 
-当前进度：M0 至 M5 已完成。M1 首条纵向链路见 [`m1-vertical-slice.md`](./m1-vertical-slice.md)，M2 查询契约见 [`m2-readonly-cli.md`](./m2-readonly-cli.md)，M3 写入契约见 [`m3-controlled-writes.md`](./m3-controlled-writes.md)，M4 全量事实源与页面读模型见 [`m4-full-migration.md`](./m4-full-migration.md)，M5 发布校验与恢复语义见 [`m5-release-hardening.md`](./m5-release-hardening.md)。下一阶段为 M6 Agent Skill。
+当前进度：M0 至 M6 已完成。M1 首条纵向链路见 [`m1-vertical-slice.md`](./m1-vertical-slice.md)，M2 查询契约见 [`m2-readonly-cli.md`](./m2-readonly-cli.md)，M3 写入契约见 [`m3-controlled-writes.md`](./m3-controlled-writes.md)，M4 全量事实源与页面读模型见 [`m4-full-migration.md`](./m4-full-migration.md)，M5 发布校验与恢复语义见 [`m5-release-hardening.md`](./m5-release-hardening.md)，M6 Skill 契约见 [`m6-agent-skill.md`](./m6-agent-skill.md)。下一阶段为 M7 硬化、切换与交付。
 
 ## 当前前置条件
 

@@ -2,7 +2,7 @@
 
 Ktoon 的个人 AI 信息索引，用来公开整理工具、产品、文章、行业标准与点子。
 
-当前已完成 **M5 发布硬化**：20 个条目由 `content/entries/*.md` 唯一描述；GitHub Actions 每次从事实源重建公开 JSON，验证 Schema、测试、类型、发布包字段和全部本地静态引用后才部署。CLI 可以通过 `gh auth` 完成单条目的完整 CRUD 与查询。
+当前已完成 **M6 Agent Skill**：20 个条目由 `content/entries/*.md` 唯一描述；GitHub Actions 每次从事实源重建并校验后部署。CLI 可以通过 `gh auth` 完成单条目的完整 CRUD 与查询，项目 Skill 将自然语言意图稳定映射到同一 CLI，不保存凭据或提供直接写文件的备用路径。
 
 ## 本地运行
 
@@ -46,7 +46,8 @@ npm run verify
 - [M3 受控写入与并发保护](docs/m3-controlled-writes.md)
 - [M4 全量迁移与页面数据化](docs/m4-full-migration.md)
 - [M5 发布校验与失败恢复](docs/m5-release-hardening.md)
+- [M6 Agent Skill](docs/m6-agent-skill.md)
 - [产品定义](PRODUCT.md)
 - [设计规范](DESIGN.md)
 
-下一阶段 M6 将创建项目专用 Agent Skill，把自然语言维护操作稳定映射到现有 CLI。
+下一阶段 M7 将补齐最终硬化、切换与维护者交付。
