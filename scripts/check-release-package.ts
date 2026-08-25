@@ -153,20 +153,54 @@ function extractImportReference(source: string): string | undefined {
 }
 
 /**
- * 还原 PostCSS 可能拆开的 @import 规则名并返回参数。
+ * 从 at-rule 原文消费完整 CSS ident，确认 @import 后返回参数。
  *
- * 为什么存在：CSS at-keyword 的 ident 允许转义，而 PostCSS 会把 `@im\\70 ort` 拆成 name=im 与 params=\\70 ort。正常规则直接比较解码后的 name；仅在 name 与 params 无分隔时拼接、解码并确认 import 后紧跟参数起始符。无法确认时返回 undefined，不把其他 at-rule 当导入。排查时查看 rule.raws.afterName。不能只用 walkAtRules 正则，否则浏览器可识别的转义规则会漏检。
+ * 为什么存在：CSS at-keyword 的 ident 允许转义，而 PostCSS 会拆开转义名称。规则原文进入后逐字符消费 name char 与完整 escape，再跳过名称后的空白或 comment；只有完整解码名等于 import 才返回剩余参数。无法确认时返回 undefined，不把 @importurl 等未知规则当导入。排查时比较 rule.toString() 与消费游标。不能退回 name/params 拼接猜测，否则 comment 与前缀名称会造成漏检或误报。
  */
-function resolveImportParameters(
-  name: string,
-  params: string,
-  afterName: string,
-): string | undefined {
-  if (decodeCssEscapes(name).toLocaleLowerCase() === "import") return params;
-  if (afterName !== "") return undefined;
-  const decoded = decodeCssEscapes(`${name}${params}`);
-  const match = /^import(?=$|\s|["']|url\()/iu.exec(decoded);
-  return match ? decoded.slice(match[0].length).trimStart() : undefined;
+function resolveImportParameters(serializedRule: string): string | undefined {
+  if (!serializedRule.startsWith("@")) return undefined;
+  let cursor = 1;
+  let rawName = "";
+  while (cursor < serializedRule.length) {
+    const character = serializedRule[cursor];
+    if (/[-_\p{L}\p{N}]/u.test(character)) {
+      rawName += character;
+      cursor += 1;
+      continue;
+    }
+    if (character !== "\\") break;
+    const escapeStart = cursor;
+    cursor += 1;
+    const hexStart = cursor;
+    while (
+      cursor < serializedRule.length &&
+      cursor - hexStart < 6 &&
+      /[\da-f]/iu.test(serializedRule[cursor])
+    ) {
+      cursor += 1;
+    }
+    if (cursor === hexStart && cursor < serializedRule.length) cursor += 1;
+    if (cursor > hexStart && /\s/u.test(serializedRule[cursor] ?? "")) {
+      if (serializedRule[cursor] === "\r" && serializedRule[cursor + 1] === "\n") cursor += 1;
+      cursor += 1;
+    }
+    rawName += serializedRule.slice(escapeStart, cursor);
+  }
+  if (decodeCssEscapes(rawName).toLocaleLowerCase() !== "import") return undefined;
+  while (cursor < serializedRule.length) {
+    if (/\s/u.test(serializedRule[cursor])) {
+      cursor += 1;
+      continue;
+    }
+    if (serializedRule.startsWith("/*", cursor)) {
+      const commentEnd = serializedRule.indexOf("*/", cursor + 2);
+      if (commentEnd === -1) return undefined;
+      cursor = commentEnd + 2;
+      continue;
+    }
+    break;
+  }
+  return serializedRule.slice(cursor);
 }
 
 /**
@@ -181,11 +215,7 @@ function extractCssReferences(source: string, mode: "stylesheet" | "declarations
     references.push(...extractUrlsFromCssValue(declaration.value));
   });
   root.walkAtRules((rule) => {
-    const importParameters = resolveImportParameters(
-      rule.name,
-      rule.params,
-      rule.raws.afterName ?? "",
-    );
+    const importParameters = resolveImportParameters(rule.toString());
     if (importParameters === undefined) return;
     const reference = extractImportReference(importParameters);
     if (reference) references.push(reference);

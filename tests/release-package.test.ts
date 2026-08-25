@@ -22,7 +22,10 @@ async function createReleaseFixture(): Promise<string> {
   await writeFile(resolve(directory, "app.js"), "void 0;\n");
   await writeFile(resolve(directory, "..asset.css"), "body{}\n");
   await writeFile(resolve(directory, "imported.css"), "body{}\n");
-  await writeFile(resolve(directory, "conditional.css"), '@import url("./imported.css") screen;\n');
+  await writeFile(
+    resolve(directory, "conditional.css"),
+    '@import url("./imported.css") screen;@importurl("./ignored.css");\n',
+  );
   await writeFile(
     resolve(directory, "data/index.json"),
     JSON.stringify({ categories: projected.categories }),
@@ -108,7 +111,7 @@ describe("M5 发布包校验", () => {
     );
     await writeFile(
       resolve(directory, "style.css"),
-      '@import "./missing-import.css";@import "./missing-supported-import.css" supports(background-image: url("./import-condition-decoy.png"));@im\\70 ort "./missing-escaped-import.css";.x{background:url(./safe/\\2e\\2e /\\2e\\2e /outside.png)}.y{background:u\\72l("./missing-escaped-function.png")}.z{background-image:image-set("./missing-1x.png" 1x)}',
+      '@import "./missing-import.css";@import "./missing-supported-import.css" supports(background-image: url("./import-condition-decoy.png"));@im\\70 ort "./missing-escaped-import.css";@im\\70 ort/**/"./missing-comment-import.css";.x{background:url(./safe/\\2e\\2e /\\2e\\2e /outside.png)}.y{background:u\\72l("./missing-escaped-function.png")}.z{background-image:image-set("./missing-1x.png" 1x)}',
     );
     await writeFile(resolve(directory, "import-condition-decoy.png"), "decoy\n");
     await symlink("/etc/hosts", resolve(directory, "assets/escape.txt"));
@@ -137,6 +140,7 @@ describe("M5 发布包校验", () => {
           expect.stringContaining("missing-import.css"),
           expect.stringContaining("missing-supported-import.css"),
           expect.stringContaining("missing-escaped-import.css"),
+          expect.stringContaining("missing-comment-import.css"),
           expect.stringContaining("发布包不得包含符号链接"),
           expect.stringContaining("静态引用真实路径越出发布目录"),
         ]),
