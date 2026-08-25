@@ -112,7 +112,7 @@ function decodeCssEscapes(source: string): string {
 /**
  * 从单个 CSS value 中提取 url() 与 image-set() 的资源候选。
  *
- * 为什么存在：声明值可以嵌套函数，且函数名本身允许转义。value-parser 深度遍历 token；url() 读取完整参数，image-set() 额外收集字符串 image。畸形 value 由 parser 尽量恢复且不会主动访问文件。排查时检查 token 类型。不能把 local() 字体名或普通字符串当作资源。
+ * 为什么存在：声明值可以嵌套函数，且函数名本身允许转义。value-parser 深度遍历 token；url() 读取完整参数，image-set() 与兼容前缀 -webkit-image-set() 额外收集字符串 image。畸形 value 由 parser 尽量恢复且不会主动访问文件。排查时检查 token 类型。不能把 local() 字体名或普通字符串当作资源。
  */
 function extractUrlsFromCssValue(source: string): string[] {
   const references: string[] = [];
@@ -137,6 +137,22 @@ function extractUrlsFromCssValue(source: string): string[] {
 }
 
 /**
+ * 从 @import 参数的首个语法节点读取唯一导入目标。
+ *
+ * 为什么存在：@import 的 supports/media 条件也可能包含 url()，但它们不是导入目标。参数进入后只检查首个非空白节点；字符串直接解码，url() 复用 value 提取器，其余形态视为无有效静态目标。解析失败由上层 PostCSS 路径统一转为 BUILD_FAILED；排查时检查首节点 token。不能扫描整段参数后凭 URL 数量猜测目标，否则条件 URL 会掩盖真正文件。
+ */
+function extractImportReference(source: string): string | undefined {
+  const parsed = valueParser(source);
+  const target = parsed.nodes.find((node) => node.type !== "space" && node.type !== "comment");
+  if (!target) return undefined;
+  if (target.type === "string") return decodeCssEscapes(target.value);
+  if (target.type !== "function" || decodeCssEscapes(target.value).toLocaleLowerCase() !== "url") {
+    return undefined;
+  }
+  return extractUrlsFromCssValue(valueParser.stringify(target))[0];
+}
+
+/**
  * 解析完整 stylesheet 或 style 属性声明列表中的全部资源引用。
  *
  * 为什么存在：外部 CSS、style 节点与 style 属性必须共享同一 URL 规则。调用方显式传入模式；declarations 会包进临时规则，stylesheet 原样交给 PostCSS。语法错误抛给上层聚合为 BUILD_FAILED；排查时定位对应源码。不能把模式退回 boolean，也不能在含 url() 的 @import 中把媒体条件当文件。
@@ -148,13 +164,8 @@ function extractCssReferences(source: string, mode: "stylesheet" | "declarations
     references.push(...extractUrlsFromCssValue(declaration.value));
   });
   root.walkAtRules(/^import$/iu, (rule) => {
-    const parsed = valueParser(rule.params);
-    const functionReferences = extractUrlsFromCssValue(rule.params);
-    references.push(...functionReferences);
-    if (functionReferences.length === 0) {
-      const direct = parsed.nodes.find((node) => node.type === "string" || node.type === "word");
-      if (direct) references.push(decodeCssEscapes(direct.value));
-    }
+    const reference = extractImportReference(rule.params);
+    if (reference) references.push(reference);
   });
   return references;
 }
@@ -162,7 +173,7 @@ function extractCssReferences(source: string, mode: "stylesheet" | "declarations
 /**
  * 从构建后源码提取浏览器资源引用，并识别会改变解析基准的真实 `<base>`。
  *
- * 为什么存在：Pages 子路径和缺失资产必须在上传前发现。HTML 由 parse5 生成解析树并完成实体、注释和无引号属性处理；递归遍历元素属性、style 属性与 style 节点，同时将真实 base 作为独立信号返回。外部和内联 CSS 由 PostCSS 解析，URL token 再做 CSS escape 解码。PostCSS 解析失败会抛给调用方聚合为 BUILD_FAILED；排查时查看对应构建文件。不能换回 HTML/CSS 正则或丢弃 hasBase 信号。
+ * 为什么存在：Pages 子路径和缺失资产必须在上传前发现。HTML 由 parse5 生成解析树并完成实体、注释和无引号属性处理；递归遍历元素属性、style 属性与 style 节点，srcset 与 preload 使用的 imagesrcset 共享候选解析，同时将真实 base 作为独立信号返回。外部和内联 CSS 由 PostCSS 解析，URL token 再做 CSS escape 解码。PostCSS 解析失败会抛给调用方聚合为 BUILD_FAILED；排查时查看对应构建文件。不能换回 HTML/CSS 正则、遗漏 preload 候选或丢弃 hasBase 信号。
  */
 function inspectSourceReferences(
   file: string,
