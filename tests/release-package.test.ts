@@ -77,6 +77,8 @@ describe("M5 发布包校验", () => {
     await mkdir(resolve(directory, "assets"), { recursive: true });
     await mkdir(resolve(directory, "assets/private"), { recursive: true });
     await mkdir(resolve(directory, "%2e%2e"), { recursive: true });
+    await mkdir(resolve(directory, "&#x2e;&#x2e;"), { recursive: true });
+    await mkdir(resolve(directory, "sub"), { recursive: true });
     await writeFile(
       resolve(directory, "data/entries/nested/secret.json"),
       JSON.stringify({ request_id: "secret" }),
@@ -91,9 +93,11 @@ describe("M5 发布包校验", () => {
       JSON.stringify({ request_id: "uppercase", maintainer: "me" }),
     );
     await writeFile(resolve(directory, "%2e%2e/outside.js"), "void 0;\n");
+    await writeFile(resolve(directory, "&#x2e;&#x2e;/outside.js"), "void 0;\n");
+    await writeFile(resolve(directory, "base-target.js"), "void 0;\n");
     await writeFile(
       resolve(directory, "index.html"),
-      '<script src=./missing-extra.js></script><script src="./%2e%2e/outside.js"></script><link href="./style.css"><img src="./assets/escape.txt" srcset="data:image/svg+xml,%3Csvg%3E 1x, ./missing-srcset.png 2x">',
+      '<base href="./sub/"><script src=./missing-extra.js></script><script src="https:/missing-root.js"></script><script src="./%2e%2e/outside.js"></script><script src="./&#x2e;&#x2e;/outside.js"></script><script src="./base-target.js"></script><link href="./style.css"><img src="./assets/escape.txt" srcset="data:image/svg+xml,%3Csvg%3E 1x, ./missing-srcset.png 2x">',
     );
     await writeFile(resolve(directory, "style.css"), '@import "./missing-import.css";');
     await symlink("/etc/hosts", resolve(directory, "assets/escape.txt"));
@@ -110,6 +114,9 @@ describe("M5 发布包校验", () => {
           expect.stringContaining("missing-extra.js"),
           expect.stringContaining("missing-srcset.png"),
           expect.stringContaining("URL 解析后越出发布目录"),
+          expect.stringContaining("https:/missing-root.js"),
+          expect.stringContaining("./../outside.js"),
+          expect.stringContaining("不允许 base 元素"),
           expect.stringContaining("missing-import.css"),
           expect.stringContaining("发布包不得包含符号链接"),
           expect.stringContaining("静态引用真实路径越出发布目录"),

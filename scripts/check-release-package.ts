@@ -82,6 +82,29 @@ function extractSrcsetUrls(source: string): string[] {
 }
 
 /**
+ * 将 HTML 属性中的常用字符实体还原为浏览器参与 URL 解析的文本。
+ *
+ * 为什么存在：浏览器会在解析 href/src/srcset 前解码实体，校验器必须使用同一输入。数值实体与五个基础命名实体会被还原；未知或畸形实体原样保留，不抛错。排查时比较构建后属性与 DOM URL。不能在路径检查之后再解码，否则编码的点段可以绕过站点前缀。
+ */
+function decodeHtmlAttribute(source: string): string {
+  const named: Record<string, string> = {
+    amp: "&",
+    apos: "'",
+    gt: ">",
+    lt: "<",
+    quot: '"',
+  };
+  return source.replace(/&(?:#(\d+)|#x([\da-f]+)|([a-z]+));/giu, (entity, decimal, hex, name) => {
+    if (decimal || hex) {
+      const codePoint = Number.parseInt(decimal ?? hex, decimal ? 10 : 16);
+      if (codePoint > 0x10ffff || (codePoint >= 0xd800 && codePoint <= 0xdfff)) return entity;
+      return String.fromCodePoint(codePoint);
+    }
+    return named[String(name).toLocaleLowerCase()] ?? entity;
+  });
+}
+
+/**
  * 提取 HTML 与 CSS 中会由浏览器加载的静态引用。
  *
  * 为什么存在：Pages 子路径和缺失资产必须在上传前发现。HTML 支持带引号或无引号的 src/href/poster/data/srcset，CSS 支持 url() 与字符串 @import；其他文件返回空集合。函数不会主动抛错，畸形且无法匹配的 HTML/CSS 会被忽略，因此上游仍必须由 Vite 生成合法源码；排查时查看构建后文件。不能收窄为双引号属性或只检查 url()，否则合法语法可绕过资源闭环。
@@ -92,11 +115,11 @@ function extractReferences(file: string, source: string): string[] {
       ...source.matchAll(
         /\b(?:src|href|poster|data)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/giu,
       ),
-    ].map((match) => match[1] ?? match[2] ?? match[3]);
+    ].map((match) => decodeHtmlAttribute(match[1] ?? match[2] ?? match[3]));
     const srcsets = [
       ...source.matchAll(/\bsrcset\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/giu),
     ].flatMap((match) => {
-      const value = match[1] ?? match[2] ?? match[3];
+      const value = decodeHtmlAttribute(match[1] ?? match[2] ?? match[3]);
       return extractSrcsetUrls(value);
     });
     return [...new Set([...attributes, ...srcsets])];
@@ -116,7 +139,7 @@ function extractReferences(file: string, source: string): string[] {
 /**
  * 验证单个本地引用存在且真实路径仍位于发布目录内。
  *
- * 为什么存在：词法 `../` 检查无法识别 symlink 逃逸。引用先按源文件解析，再由 realpath 核对最终目标；外链、data URL 与 fragment 跳过。缺失或越界会聚合为 BUILD_FAILED。排查时检查源文件与 symlink。不能退回 access-only 检查。
+ * 为什么存在：词法 `../` 检查无法复现浏览器的点段、百分号编码和同源根路径语义。引用必须先经过属性实体解码，再以 WHATWG URL 在虚拟 `/__release__/` 前缀解析；解析后确认跨域的 HTTP(S) 才作为外链跳过，同源引用必须保留前缀。随后 decodeURIComponent 映射文件，并依次做词法 containment 与 realpath/symlink containment。URL、百分号或真实路径失败会聚合为 BUILD_FAILED；排查时比较浏览器最终 URL。不能调整这套顺序或在 URL 解析前按字符串跳过外链。
  */
 async function checkLocalReference(
   outputDirectory: string,
@@ -125,21 +148,14 @@ async function checkLocalReference(
   reference: string,
   problems: string[],
 ): Promise<boolean> {
-  if (/^(?:data:|https?:|mailto:|tel:|#)/iu.test(reference)) return false;
-  if (reference.startsWith("//")) return false;
-  if (reference.startsWith("/")) {
-    problems.push(
-      `静态引用不能使用站点根路径：${relative(outputDirectory, sourceFile)} -> ${reference}`,
-    );
-    return true;
-  }
-
   const virtualRoot = "/__release__/";
   const sourcePath = relative(outputDirectory, sourceFile).split(sep).join("/");
   let pathname = "";
   try {
     const parsed = new URL(reference, `https://release.invalid${virtualRoot}${sourcePath}`);
-    if (parsed.origin !== "https://release.invalid" || !parsed.pathname.startsWith(virtualRoot)) {
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return false;
+    if (parsed.origin !== "https://release.invalid") return false;
+    if (!parsed.pathname.startsWith(virtualRoot)) {
       problems.push(
         `静态引用按 URL 解析后越出发布目录：${relative(outputDirectory, sourceFile)} -> ${reference}`,
       );
@@ -265,6 +281,9 @@ export async function verifyReleasePackage(
     (candidate) => candidate.endsWith(".html") || candidate.endsWith(".css"),
   )) {
     const source = await readFile(file, "utf8");
+    if (file.endsWith(".html") && /<base\b/iu.test(source)) {
+      problems.push(`发布 HTML 不允许 base 元素：${relative(outputDirectory, file)}`);
+    }
     for (const reference of extractReferences(file, source)) {
       if (
         await checkLocalReference(outputDirectory, realOutputDirectory, file, reference, problems)
