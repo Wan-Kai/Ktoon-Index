@@ -44,3 +44,5 @@ npm run verify:release
 ## 恢复语义
 
 构建失败不会修改内容 commit、创建发布状态机或自动回滚。修复对应 Markdown、代码或资源引用后再次提交，下一次 Actions 会从事实源完整重建并自然恢复部署。不能通过跳过失败步骤、保留旧 `dist` 或把校验改成 warning 来恢复。
+
+`workflow_dispatch` 可以在临时分支执行同一套 build 校验，但只有 `main` 允许进入 Pages deploy job。这样可以演练失败与恢复，不会让测试分支覆盖公开站。
