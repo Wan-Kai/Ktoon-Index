@@ -36,26 +36,32 @@ const httpsUrlSchema = z.string().superRefine((value, context) => {
   }
 });
 
-export const sourceLinkSchema = z.object({
-  title: z.string().trim().min(1, "来源标题不能为空"),
-  url: httpsUrlSchema,
-});
+export const sourceLinkSchema = z
+  .object({
+    title: z.string().trim().min(1, "来源标题不能为空"),
+    url: httpsUrlSchema,
+  })
+  .strict();
 
-export const referenceLinkSchema = sourceLinkSchema.extend({
-  description: z.string().trim().min(1, "资料描述不能为空").optional(),
-});
+export const referenceLinkSchema = sourceLinkSchema
+  .extend({
+    description: z.string().trim().min(1, "资料描述不能为空").optional(),
+  })
+  .strict();
 
-export const createEntryInputSchema = z.object({
-  id: entryIdSchema.optional(),
-  title: z.string().trim().min(1, "标题不能为空"),
-  summary: z.string().trim().min(1, "摘要不能为空"),
-  category: z.enum(CATEGORY_IDS),
-  tags: z.array(z.string()).default([]),
-  rating: z.enum(RATINGS).nullable().default(null),
-  source: sourceLinkSchema.nullable().optional(),
-  references: z.array(referenceLinkSchema).default([]),
-  personal_take: z.string().default(""),
-});
+export const createEntryInputSchema = z
+  .object({
+    id: entryIdSchema.optional(),
+    title: z.string().trim().min(1, "标题不能为空"),
+    summary: z.string().trim().min(1, "摘要不能为空"),
+    category: z.enum(CATEGORY_IDS),
+    tags: z.array(z.string()).default([]),
+    rating: z.enum(RATINGS).nullable().default(null),
+    source: sourceLinkSchema.nullable().optional(),
+    references: z.array(referenceLinkSchema).default([]),
+    personal_take: z.string().default(""),
+  })
+  .strict();
 
 /**
  * 阻止手工 Markdown 绕过创建入口后污染动态标签事实源。

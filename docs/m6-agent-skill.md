@@ -42,5 +42,5 @@ Skill 是 model-invoked：当用户要求查询或维护个人 AI Index 时可�
 
 - Skill 结构通过官方 `quick_validate.py`。
 - 自动测试从仓库外 cwd 调用 runner，证明固定定位不依赖当前任务目录。
-- 自动测试检查 Skill 文档只暴露 bundled runner，不包含直接 Git/GitHub/事实源写入备用路径。
+- 自动测试验证 runner 暴露完整 CRUD、非法输入在联网前以稳定 JSON 失败、脱离仓库时只返回 BUILD_FAILED；领域测试单独覆盖未知创建/链接字段。
 - 真实 `doctor`、search、get、tag list 通过 runner 执行；写入恢复语义由现有 M3 adapter 与 mutation 测试覆盖，不为 Skill 建造第二套 mock 领域层。

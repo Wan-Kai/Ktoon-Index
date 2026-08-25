@@ -96,6 +96,24 @@ describe("M1 Entry Schema", () => {
     );
   });
 
+  it("拒绝创建条目或链接中的未知字段，避免静默丢失 Agent 意图", () => {
+    expect(() => createEntry({ ...createInput, personalTake: "拼错的正文键" })).toThrowError(
+      expect.objectContaining({ code: "VALIDATION_FAILED" }),
+    );
+    expect(() =>
+      createEntry({
+        ...createInput,
+        source: { ...createInput.source, description: "来源不支持描述" },
+      }),
+    ).toThrowError(expect.objectContaining({ code: "VALIDATION_FAILED" }));
+    expect(() =>
+      createEntry({
+        ...createInput,
+        references: [{ ...createInput.references[0], note: "未知参考字段" }],
+      }),
+    ).toThrowError(expect.objectContaining({ code: "VALIDATION_FAILED" }));
+  });
+
   it("公开投影不包含维护字段", () => {
     const entry = createEntry(createInput, new Date("2026-08-25T08:00:00.000Z"));
     const publicEntry = projectPublicEntry(entry);

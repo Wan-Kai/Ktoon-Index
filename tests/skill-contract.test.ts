@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { chmodSync, copyFileSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
@@ -21,34 +21,51 @@ describe("M6 Agent Skill 契约", () => {
     expect(result.stdout.trim()).toBe("0.6.0");
   });
 
-  it("只公开受控 runner，不提供直接事实源或 GitHub 写入备用路径", () => {
-    const documents = [
-      "SKILL.md",
-      "references/write-contracts.md",
-      "references/error-recovery.md",
-    ].map((path) => readFileSync(resolve(skillRoot, path), "utf8"));
-    const source = documents.join("\n");
-    const skill = documents[0];
+  it("通过 runner 暴露现有单条目 CRUD 命令", () => {
+    const result = spawnSync(runner, ["entry", "--help"], {
+      cwd: tmpdir(),
+      encoding: "utf8",
+    });
 
-    expect(skill).toMatch(/^---\nname: ai-index\ndescription: .+\n---/u);
-    expect(skill).not.toContain("TODO");
-    expect(source).toContain("scripts/run-ai-index.sh");
-    expect(source).toContain('"$RUNNER"');
-    expect(source).toContain("VERSION_CONFLICT");
-    expect(source).toContain("--request-id");
-    expect(source).not.toMatch(/\bgh\s+api\b/u);
-    expect(source).not.toMatch(/\bgit\s+(?:add|commit|push)\b/u);
-    expect(source).not.toContain("bin/ai-index.js");
-    expect(source).not.toContain("npm run ai-index");
+    expect(result.status).toBe(0);
+    for (const command of ["create", "get", "update", "delete", "restore", "list", "search"]) {
+      expect(result.stdout).toContain(command);
+    }
   });
 
-  it("固定读优先、版本护栏、幂等和无凭据边界", () => {
-    const skill = readFileSync(resolve(skillRoot, "SKILL.md"), "utf8");
+  it("非法 ID 通过 runner 在联网前返回稳定校验错误", () => {
+    const result = spawnSync(runner, ["entry", "get", "../bad-id"], {
+      cwd: tmpdir(),
+      encoding: "utf8",
+    });
 
-    expect(skill).toContain("read-first step");
-    expect(skill).toContain("entry.version");
-    expect(skill).toContain("same request ID");
-    expect(skill).toContain("credentials out of prompts");
-    expect(skill).toContain("one entry mutation at a time");
+    expect(result.status).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(JSON.parse(result.stderr)).toMatchObject({
+      ok: false,
+      error: { code: "VALIDATION_FAILED" },
+    });
+  });
+
+  it("runner 脱离仓库时只返回稳定 BUILD_FAILED", () => {
+    const directory = mkdtempSync(join(tmpdir(), "ai-index-skill-"));
+    const isolatedRunner = resolve(directory, "ai-index/scripts/run-ai-index.sh");
+    const scriptDirectory = resolve(isolatedRunner, "..");
+
+    try {
+      mkdirSync(scriptDirectory, { recursive: true });
+      copyFileSync(runner, isolatedRunner);
+      chmodSync(isolatedRunner, 0o755);
+      const result = spawnSync(isolatedRunner, ["doctor"], { encoding: "utf8" });
+
+      expect(result.status).toBe(1);
+      expect(result.stdout).toBe("");
+      expect(JSON.parse(result.stderr)).toMatchObject({
+        ok: false,
+        error: { code: "BUILD_FAILED" },
+      });
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
   });
 });
