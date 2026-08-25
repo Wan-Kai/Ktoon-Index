@@ -131,16 +131,65 @@ export function sandboxRunner(branch: string, runGh: GhRunner = defaultGhRunner)
         JSON.stringify(["api", repositoryEndpoint, "--jq", "{default_branch,permissions}"]);
     if (isAuthProbe || isRepositoryProbe) return runGh(args, input);
 
-    const methodIndex = args.indexOf("--method");
-    const method = methodIndex >= 0 ? args[methodIndex + 1] : undefined;
-    const endpoint = args.find((argument) => argument.startsWith(`${repositoryEndpoint}/`));
-    if (
-      args.includes("-X") ||
-      !method ||
-      !["GET", "PUT"].includes(method) ||
-      !endpoint ||
-      (input !== undefined && method !== "PUT")
-    ) {
+    const method = args[2];
+    const endpoint = args[3];
+    const isContentEndpoint =
+      typeof endpoint === "string" &&
+      new RegExp(`^${repositoryEndpoint}/contents/content/entries/[a-z0-9-]+\\.md$`, "u").test(
+        endpoint,
+      );
+    const isContentGet =
+      input === undefined &&
+      args.length === 6 &&
+      args[0] === "api" &&
+      args[1] === "--method" &&
+      method === "GET" &&
+      isContentEndpoint &&
+      args[4] === "-f" &&
+      (args[5] === `ref=${GITHUB_BRANCH}` || /^ref=[a-f0-9]{40}$/u.test(args[5] ?? ""));
+    const isContentPut =
+      input !== undefined &&
+      args.length === 6 &&
+      args[0] === "api" &&
+      args[1] === "--method" &&
+      method === "PUT" &&
+      isContentEndpoint &&
+      args[4] === "--input" &&
+      args[5] === "-";
+    const isCommitHistory =
+      input === undefined &&
+      JSON.stringify(args) ===
+        JSON.stringify([
+          "api",
+          "--method",
+          "GET",
+          `${repositoryEndpoint}/commits`,
+          "-f",
+          `sha=${GITHUB_BRANCH}`,
+          "-f",
+          "per_page=100",
+          "--paginate",
+          "--slurp",
+        ]);
+    const isCommitDetails =
+      input === undefined &&
+      args.length === 4 &&
+      args[0] === "api" &&
+      args[1] === "--method" &&
+      method === "GET" &&
+      new RegExp(`^${repositoryEndpoint}/commits/[a-f0-9]{40}$`, "u").test(endpoint ?? "");
+    const isTreeRead =
+      input === undefined &&
+      JSON.stringify(args) ===
+        JSON.stringify([
+          "api",
+          "--method",
+          "GET",
+          `${repositoryEndpoint}/git/trees/${GITHUB_BRANCH}`,
+          "-f",
+          "recursive=1",
+        ]);
+    if (!(isContentGet || isContentPut || isCommitHistory || isCommitDetails || isTreeRead)) {
       throw new AppError("VALIDATION_FAILED", "sandbox 拒绝未列入白名单的 gh 请求形状", {
         branch,
       });
@@ -175,7 +224,7 @@ export function sandboxRunner(branch: string, runGh: GhRunner = defaultGhRunner)
       mappedInput = JSON.stringify(payload);
     }
 
-    const isContentRequest = endpoint?.includes("/contents/") === true;
+    const isContentRequest = isContentGet || isContentPut;
     if (method === "PUT") {
       if (!isContentRequest || payload?.branch !== branch) {
         throw new AppError("VALIDATION_FAILED", "sandbox 拒绝未明确指向临时分支的写请求", {
@@ -197,14 +246,6 @@ export function sandboxRunner(branch: string, runGh: GhRunner = defaultGhRunner)
     if (endpoint?.endsWith("/commits") && !mappedArgs.includes(`sha=${branch}`)) {
       throw new AppError("VALIDATION_FAILED", "sandbox 历史读取缺少临时分支 sha", { branch });
     }
-    const isAllowedGet =
-      isContentRequest ||
-      endpoint === `${repositoryEndpoint}/commits` ||
-      new RegExp(`^${repositoryEndpoint}/commits/[a-f0-9]{40}$`, "u").test(endpoint) ||
-      endpoint === `${repositoryEndpoint}/git/trees/${GITHUB_BRANCH}`;
-    if (method === "GET" && !isAllowedGet) {
-      throw new AppError("VALIDATION_FAILED", "sandbox 拒绝未列入白名单的读取请求", { branch });
-    }
     if (
       mappedArgs.includes(`ref=${GITHUB_BRANCH}`) ||
       mappedArgs.includes(`sha=${GITHUB_BRANCH}`) ||
@@ -224,7 +265,7 @@ export type SandboxBranchAttempt =
 /**
  * 以先查后建的方式确定一次性分支的所有权。
  *
- * 触发条件：真实 sandbox 即将创建唯一远端 ref。处理方式：先确认 ref 不存在，再 POST；成功且响应 ref 匹配时标记 owned，明确 422 冲突标记 none，网络/损坏响应标记 uncertain。外部根据 ownership 决定是否清理。所有权不变量：明确存在或明确冲突的分支绝不能被本次运行删除；只有已确认由本次创建或创建结果不确定的唯一 ref 可进入清理。
+ * 触发条件：真实 sandbox 即将创建唯一远端 ref。处理方式：先确认 ref 不存在，再 POST；成功且响应 ref 匹配时标记 owned，明确 HTTP 4xx 标记 none，其余未知、网络、5xx 或损坏响应标记 uncertain。外部根据 ownership 决定是否清理。所有权不变量：明确未创建的分支绝不能被本次运行删除；只有已确认由本次创建或创建结果不确定的唯一 ref 可进入带 SHA 核验的清理。
  */
 export function attemptSandboxBranchCreation(
   branch: string,
@@ -255,8 +296,7 @@ export function attemptSandboxBranchCreation(
     JSON.stringify({ ref: `refs/heads/${branch}`, sha }),
   );
   if (created.status !== 0) {
-    const resultIsUncertain =
-      /HTTP 5\d\d/iu.test(created.stderr) || classifyGhStderr(created.stderr) === "network_failed";
+    const resultIsUncertain = !/HTTP 4\d\d/iu.test(created.stderr);
     return {
       ownership: resultIsUncertain ? "uncertain" : "none",
       error: new AppError("GITHUB_ERROR", "创建 sandbox 分支失败", {

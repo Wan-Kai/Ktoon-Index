@@ -79,6 +79,20 @@ describe("M7 GitHub sandbox 安全边界", () => {
     expect(() =>
       run(["api", "repos/Wan-Kai/Ktoon-Index", "--method", "DELETE", "--jq", "."]),
     ).toThrowError(expect.objectContaining({ code: "VALIDATION_FAILED" }));
+    expect(() =>
+      run([
+        "api",
+        "--method",
+        "GET",
+        contentEndpoint,
+        "-f",
+        "ref=main",
+        "--method",
+        "DELETE",
+        "-f",
+        "branch=main",
+      ]),
+    ).toThrowError(expect.objectContaining({ code: "VALIDATION_FAILED" }));
     expect(base).not.toHaveBeenCalled();
   });
 
@@ -149,6 +163,15 @@ describe("M7 GitHub sandbox 安全边界", () => {
       cleanupSandboxBranch("m7-sandbox-forbidden", forbidden.ownership, sha, noDeleteAfter403),
     ).toBeUndefined();
     expect(noDeleteAfter403).not.toHaveBeenCalled();
+
+    for (const stderr of ["unexpected EOF", ""]) {
+      const unknownRunner: GhRunner = vi
+        .fn()
+        .mockReturnValueOnce(notFound)
+        .mockReturnValueOnce({ status: 1, stdout: "", stderr });
+      const unknown = attemptSandboxBranchCreation("m7-sandbox-unknown", sha, unknownRunner);
+      expect(unknown).toMatchObject({ ownership: "uncertain", error: { code: "GITHUB_ERROR" } });
+    }
   });
 
   it("清理失败不会覆盖原始验证错误", async () => {
