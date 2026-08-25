@@ -84,6 +84,11 @@ function extractSrcsetUrls(source: string): string[] {
   return urls;
 }
 
+/**
+ * 按 CSS Syntax 规则解码标识符与 URL token 中的反斜杠转义。
+ *
+ * 为什么存在：浏览器会把 `u\\72l` 与十六进制点段还原后再解释资源地址。字符串进入后逐个替换 hex、换行和普通转义；非法 code point 使用替代字符，不抛错。排查时比较 PostCSS token 与解码值。不能只解码 URL 参数而保留函数名，否则可漏掉 url()。
+ */
 function decodeCssEscapes(source: string): string {
   return source.replace(
     /\\(?:([\da-f]{1,6})(?:\r\n|[ \n\r\t\f])?|(\r\n|[\n\r\f])|(.))/giu,
@@ -104,32 +109,52 @@ function decodeCssEscapes(source: string): string {
   );
 }
 
+/**
+ * 从单个 CSS value 中提取 url() 与 image-set() 的资源候选。
+ *
+ * 为什么存在：声明值可以嵌套函数，且函数名本身允许转义。value-parser 深度遍历 token；url() 读取完整参数，image-set() 额外收集字符串 image。畸形 value 由 parser 尽量恢复且不会主动访问文件。排查时检查 token 类型。不能把 local() 字体名或普通字符串当作资源。
+ */
 function extractUrlsFromCssValue(source: string): string[] {
   const references: string[] = [];
   valueParser(source).walk((node) => {
-    if (node.type !== "function" || node.value.toLocaleLowerCase() !== "url") return;
-    const serialized = valueParser.stringify(node.nodes).trim();
-    const unquoted =
-      (serialized.startsWith('"') && serialized.endsWith('"')) ||
-      (serialized.startsWith("'") && serialized.endsWith("'"))
-        ? serialized.slice(1, -1)
-        : serialized;
-    references.push(decodeCssEscapes(unquoted));
+    if (node.type !== "function") return;
+    const functionName = decodeCssEscapes(node.value).toLocaleLowerCase();
+    if (functionName === "url") {
+      const serialized = valueParser.stringify(node.nodes).trim();
+      const unquoted =
+        (serialized.startsWith('"') && serialized.endsWith('"')) ||
+        (serialized.startsWith("'") && serialized.endsWith("'"))
+          ? serialized.slice(1, -1)
+          : serialized;
+      references.push(decodeCssEscapes(unquoted));
+    } else if (functionName === "image-set" || functionName === "-webkit-image-set") {
+      for (const child of node.nodes) {
+        if (child.type === "string") references.push(decodeCssEscapes(child.value));
+      }
+    }
   });
   return references;
 }
 
-function extractCssReferences(source: string, inline: boolean): string[] {
+/**
+ * 解析完整 stylesheet 或 style 属性声明列表中的全部资源引用。
+ *
+ * 为什么存在：外部 CSS、style 节点与 style 属性必须共享同一 URL 规则。调用方显式传入模式；declarations 会包进临时规则，stylesheet 原样交给 PostCSS。语法错误抛给上层聚合为 BUILD_FAILED；排查时定位对应源码。不能把模式退回 boolean，也不能在含 url() 的 @import 中把媒体条件当文件。
+ */
+function extractCssReferences(source: string, mode: "stylesheet" | "declarations"): string[] {
   const references: string[] = [];
-  const root = postcss.parse(inline ? `a{${source}}` : source);
+  const root = postcss.parse(mode === "declarations" ? `a{${source}}` : source);
   root.walkDecls((declaration) => {
     references.push(...extractUrlsFromCssValue(declaration.value));
   });
   root.walkAtRules(/^import$/iu, (rule) => {
     const parsed = valueParser(rule.params);
-    references.push(...extractUrlsFromCssValue(rule.params));
-    const direct = parsed.nodes.find((node) => node.type === "string" || node.type === "word");
-    if (direct) references.push(decodeCssEscapes(direct.value));
+    const functionReferences = extractUrlsFromCssValue(rule.params);
+    references.push(...functionReferences);
+    if (functionReferences.length === 0) {
+      const direct = parsed.nodes.find((node) => node.type === "string" || node.type === "word");
+      if (direct) references.push(decodeCssEscapes(direct.value));
+    }
   });
   return references;
 }
@@ -153,10 +178,10 @@ function inspectSourceReferences(
         for (const attribute of node.attrs) {
           if (["src", "href", "poster", "data"].includes(attribute.name)) {
             references.push(attribute.value);
-          } else if (attribute.name === "srcset") {
+          } else if (attribute.name === "srcset" || attribute.name === "imagesrcset") {
             references.push(...extractSrcsetUrls(attribute.value));
           } else if (attribute.name === "style") {
-            references.push(...extractCssReferences(attribute.value, true));
+            references.push(...extractCssReferences(attribute.value, "declarations"));
           }
         }
         // style 节点的文本不是普通属性，需要单独交给完整 CSS parser。
@@ -165,16 +190,20 @@ function inspectSourceReferences(
             .filter((child) => child.nodeName === "#text")
             .map((child) => ("value" in child ? child.value : ""))
             .join("");
-          references.push(...extractCssReferences(css, false));
+          references.push(...extractCssReferences(css, "stylesheet"));
         }
       }
+      // 必须递归完整 parse tree；剪掉 head/body 任一分支都会遗漏 base、style 或资源属性。
       if ("childNodes" in node) node.childNodes.forEach(visit);
     };
     visit(parse(source));
     return { references: [...new Set(references)], hasBase };
   }
   if (file.endsWith(".css")) {
-    return { references: [...new Set(extractCssReferences(source, false))], hasBase: false };
+    return {
+      references: [...new Set(extractCssReferences(source, "stylesheet"))],
+      hasBase: false,
+    };
   }
   return { references: [], hasBase: false };
 }
@@ -328,6 +357,7 @@ export async function verifyReleasePackage(
     try {
       extracted = inspectSourceReferences(file, source);
     } catch (error) {
+      // 单文件解析失败后继续检查其余文件，以一次日志返回尽可能完整的问题集合。
       problems.push(
         `静态源码无法解析：${relative(outputDirectory, file)}（${error instanceof Error ? error.message : String(error)}）`,
       );

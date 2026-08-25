@@ -21,6 +21,8 @@ async function createReleaseFixture(): Promise<string> {
   await writeFile(resolve(directory, "detail.html"), '<a href="./">Index</a>');
   await writeFile(resolve(directory, "app.js"), "void 0;\n");
   await writeFile(resolve(directory, "..asset.css"), "body{}\n");
+  await writeFile(resolve(directory, "imported.css"), "body{}\n");
+  await writeFile(resolve(directory, "conditional.css"), '@import url("./imported.css") screen;\n');
   await writeFile(
     resolve(directory, "data/index.json"),
     JSON.stringify({ categories: projected.categories }),
@@ -102,11 +104,11 @@ describe("M5 发布包校验", () => {
     await writeFile(escapedCssDecoy, "decoy\n");
     await writeFile(
       resolve(directory, "index.html"),
-      '<base href="./sub/"><script src=./missing-extra.js></script><script src="https:/missing-root.js"></script><script src="./%2e%2e/outside.js"></script><script src="./&#x2e&#x2e/outside.js"></script><script src="./&period;&period;/outside.js"></script><script src="./base-target.js"></script><link href="./style.css"><img src="./assets/escape.txt" srcset="data:image/svg+xml,%3Csvg%3E 1x, ./missing-srcset.png 2x"><div style="background:url(./missing-inline.png)"></div><style>.x{background:url(./missing-style-block.png)}</style>',
+      '<base href="./sub/"><script src=./missing-extra.js></script><script src="https:/missing-root.js"></script><script src="./%2e%2e/outside.js"></script><script src="./&#x2e&#x2e/outside.js"></script><script src="./&period;&period;/outside.js"></script><script src="./base-target.js"></script><link href="./style.css" imagesrcset="./missing-link-srcset.png 1x"><img src="./assets/escape.txt" srcset="data:image/svg+xml,%3Csvg%3E 1x, ./missing-srcset.png 2x"><div style="background:url(./missing-inline.png)"></div><style>.x{background:url(./missing-style-block.png)}</style>',
     );
     await writeFile(
       resolve(directory, "style.css"),
-      '@import "./missing-import.css";.x{background:url(./safe/\\2e\\2e /\\2e\\2e /outside.png)}',
+      '@import "./missing-import.css";.x{background:url(./safe/\\2e\\2e /\\2e\\2e /outside.png)}.y{background:u\\72l("./missing-escaped-function.png")}.z{background-image:image-set("./missing-1x.png" 1x)}',
     );
     await symlink("/etc/hosts", resolve(directory, "assets/escape.txt"));
 
@@ -121,8 +123,11 @@ describe("M5 发布包校验", () => {
           expect.stringContaining("assets/private/upper.JSON"),
           expect.stringContaining("missing-extra.js"),
           expect.stringContaining("missing-srcset.png"),
+          expect.stringContaining("missing-link-srcset.png"),
           expect.stringContaining("missing-inline.png"),
           expect.stringContaining("missing-style-block.png"),
+          expect.stringContaining("missing-escaped-function.png"),
+          expect.stringContaining("missing-1x.png"),
           expect.stringContaining("URL 解析后越出发布目录"),
           expect.stringContaining("safe/../../outside.png"),
           expect.stringContaining("https:/missing-root.js"),
