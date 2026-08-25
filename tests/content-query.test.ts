@@ -89,6 +89,12 @@ describe("M2 内容查询语义", () => {
     expect(() => filterEntries(entries, { addedAfter: "August 1, 2026" })).toThrowError(
       expect.objectContaining({ code: "VALIDATION_FAILED" }),
     );
+    expect(() => filterEntries(entries, { addedAfter: "2026-02-31T00:00:00.000Z" })).toThrowError(
+      expect.objectContaining({ code: "VALIDATION_FAILED" }),
+    );
+    expect(() => filterEntries(entries, { addedAfter: "2026-02-29T00:00Z" })).toThrowError(
+      expect.objectContaining({ code: "VALIDATION_FAILED" }),
+    );
     expect(filterEntries(entries, { addedBefore: "2026-08-01" }).map((entry) => entry.id)).toEqual([
       "mcp-inspector",
     ]);

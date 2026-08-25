@@ -149,4 +149,16 @@ describe("M1 GitHub adapter", () => {
       expect.objectContaining({ code: "GITHUB_ERROR" }),
     );
   });
+
+  it("Git tree 404 会明确失败而不是伪装成空仓库", () => {
+    const runner: GhRunner = () => ({
+      status: 1,
+      stdout: "",
+      stderr: "HTTP 404: Not Found",
+    });
+
+    expect(() => new GitHubContentClient(runner).listEntries()).toThrowError(
+      expect.objectContaining({ code: "GITHUB_ERROR" }),
+    );
+  });
 });

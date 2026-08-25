@@ -57,6 +57,37 @@ export const createEntryInputSchema = z.object({
   personal_take: z.string().default(""),
 });
 
+/**
+ * 阻止手工 Markdown 绕过创建入口后污染动态标签事实源。
+ *
+ * 为什么存在：标签没有独立词表，读取端若接受大小写、全半角差异或重复值，tag list 与筛选会对同一概念产生不同答案。
+ * 数据如何流动：Entry Schema 把原始 tags 交给 normalizeTags，再逐项比较数量、顺序和值；只有已处于 canonical 形态的数组通过。
+ * 何时失败：标签为空、含控制字符、需要进一步规范化或规范化后重复时向 Zod context 添加校验错误。
+ * 如何排查：先用 normalizeTags 查看期望值，再修改 Markdown frontmatter；不能在读取时静默修复历史事实源。
+ * 什么不能改：不能删除逐项等值检查，也不能让 listTags 自行补救，否则序列化往返和唯一枚举契约会失真。
+ */
+function enforceCanonicalTags(entry: { tags: string[] }, context: z.RefinementCtx): void {
+  try {
+    const normalized = normalizeTags(entry.tags);
+    if (
+      normalized.length !== entry.tags.length ||
+      normalized.some((tag, index) => tag !== entry.tags[index])
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["tags"],
+        message: "事实源标签必须已经规范化且不能重复",
+      });
+    }
+  } catch (error) {
+    context.addIssue({
+      code: "custom",
+      path: ["tags"],
+      message: error instanceof Error ? error.message : "事实源标签不合法",
+    });
+  }
+}
+
 export const entrySchema = z
   .object({
     id: entryIdSchema,
@@ -73,27 +104,7 @@ export const entrySchema = z
     references: z.array(referenceLinkSchema),
     personalTake: z.string(),
   })
-  .superRefine((entry, context) => {
-    try {
-      const normalized = normalizeTags(entry.tags);
-      if (
-        normalized.length !== entry.tags.length ||
-        normalized.some((tag, index) => tag !== entry.tags[index])
-      ) {
-        context.addIssue({
-          code: "custom",
-          path: ["tags"],
-          message: "事实源标签必须已经规范化且不能重复",
-        });
-      }
-    } catch (error) {
-      context.addIssue({
-        code: "custom",
-        path: ["tags"],
-        message: error instanceof Error ? error.message : "事实源标签不合法",
-      });
-    }
-  });
+  .superRefine(enforceCanonicalTags);
 
 export type CreateEntryInput = z.infer<typeof createEntryInputSchema>;
 export type Entry = z.infer<typeof entrySchema>;

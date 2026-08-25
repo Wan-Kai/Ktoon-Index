@@ -44,9 +44,32 @@ function parseBoundary(value: string | undefined, field: string): number | undef
       return field === "added_before" ? start + 86_400_000 - 1 : start;
     }
   }
-  const isoWithTimezone =
-    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:\d{2})$/u;
-  const timestamp = isoWithTimezone.test(value) ? Date.parse(value) : Number.NaN;
+  const dateTime =
+    /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.\d{1,3})?)?(?:Z|([+-])(\d{2}):(\d{2}))$/u.exec(
+      value,
+    );
+  const year = Number(dateTime?.[1]);
+  const month = Number(dateTime?.[2]);
+  const day = Number(dateTime?.[3]);
+  const hour = Number(dateTime?.[4]);
+  const minute = Number(dateTime?.[5]);
+  const second = Number(dateTime?.[6] ?? 0);
+  const offsetHour = Number(dateTime?.[8] ?? 0);
+  const offsetMinute = Number(dateTime?.[9] ?? 0);
+  const leapYear = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  const daysInMonth = [31, leapYear ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  const hasValidCalendar =
+    dateTime !== null &&
+    month >= 1 &&
+    month <= 12 &&
+    day >= 1 &&
+    day <= (daysInMonth[month - 1] ?? 0) &&
+    hour <= 23 &&
+    minute <= 59 &&
+    second <= 59 &&
+    offsetHour <= 23 &&
+    offsetMinute <= 59;
+  const timestamp = hasValidCalendar ? Date.parse(value) : Number.NaN;
   if (Number.isNaN(timestamp)) {
     throw new AppError("VALIDATION_FAILED", `${field} 不是有效时间`, { field, value });
   }

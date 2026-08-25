@@ -95,6 +95,20 @@ function parseReadOptions(options: ReadOptions): {
   };
 }
 
+/**
+ * 用空数据预跑领域查询，只验证请求而不产生结果或访问网络。
+ *
+ * 为什么存在：时间、标签和空搜索词由领域层定义，CLI 又必须保证非法参数在 doctor 或 GitHub list 之前失败。
+ * 数据如何流动：list 只调用 filterEntries；search 传入 query 调用 searchEntries；两者在真实远端数据到达后会以同一参数再执行一次得到结果。
+ * 何时失败：领域层发现非法标签、时间边界或空 query 时立即抛出 VALIDATION_FAILED，此时 adapter 调用次数必须为零。
+ * 如何排查：若失败仍触发网络，检查 action 中本函数是否位于 client.doctor 前；若规则不一致，只能修改领域查询，不能在 CLI 打补丁。
+ * 什么不能改：不能把预检移到 reader.listEntries 之后，也不能复制 parseBoundary 或 normalizeTags 的实现来避免双执行。
+ */
+function validateReadRequest(filters: EntryQueryFilters, query?: string): void {
+  if (query === undefined) filterEntries([], filters);
+  else searchEntries([], query, filters);
+}
+
 function entryTableRows(entries: Entry[]): TableRow[] {
   return entries.map((entry) => ({
     ID: entry.id,
@@ -208,7 +222,7 @@ export function createProgram(client = new GitHubContentClient()): Command {
   addReadOptions(entry.command("list").description("列出远端 Markdown 条目")).action(
     (options: ReadOptions) => {
       const { filters, format } = parseReadOptions(options);
-      filterEntries([], filters);
+      validateReadRequest(filters);
       client.doctor();
       const entries = filterEntries(reader.listEntries(), filters);
       writeOutput(
@@ -226,7 +240,7 @@ export function createProgram(client = new GitHubContentClient()): Command {
       .argument("<query>", "字符串查询"),
   ).action((query: string, options: ReadOptions) => {
     const { filters, format } = parseReadOptions(options);
-    searchEntries([], query, filters);
+    validateReadRequest(filters, query);
     client.doctor();
     const results = searchEntries(reader.listEntries(), query, filters);
     writeOutput(
