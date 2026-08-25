@@ -97,11 +97,17 @@ describe("M5 发布包校验", () => {
     await writeFile(resolve(directory, "&#x2e;&#x2e;/outside.js"), "void 0;\n");
     await writeFile(resolve(directory, "&period;&period;/outside.js"), "void 0;\n");
     await writeFile(resolve(directory, "base-target.js"), "void 0;\n");
+    const escapedCssDecoy = resolve(directory, "safe", "\\2e\\2e ", "\\2e\\2e ", "outside.png");
+    await mkdir(resolve(escapedCssDecoy, ".."), { recursive: true });
+    await writeFile(escapedCssDecoy, "decoy\n");
     await writeFile(
       resolve(directory, "index.html"),
-      '<base href="./sub/"><script src=./missing-extra.js></script><script src="https:/missing-root.js"></script><script src="./%2e%2e/outside.js"></script><script src="./&#x2e&#x2e/outside.js"></script><script src="./&period;&period;/outside.js"></script><script src="./base-target.js"></script><link href="./style.css"><img src="./assets/escape.txt" srcset="data:image/svg+xml,%3Csvg%3E 1x, ./missing-srcset.png 2x">',
+      '<base href="./sub/"><script src=./missing-extra.js></script><script src="https:/missing-root.js"></script><script src="./%2e%2e/outside.js"></script><script src="./&#x2e&#x2e/outside.js"></script><script src="./&period;&period;/outside.js"></script><script src="./base-target.js"></script><link href="./style.css"><img src="./assets/escape.txt" srcset="data:image/svg+xml,%3Csvg%3E 1x, ./missing-srcset.png 2x"><div style="background:url(./missing-inline.png)"></div><style>.x{background:url(./missing-style-block.png)}</style>',
     );
-    await writeFile(resolve(directory, "style.css"), '@import "./missing-import.css";');
+    await writeFile(
+      resolve(directory, "style.css"),
+      '@import "./missing-import.css";.x{background:url(./safe/\\2e\\2e /\\2e\\2e /outside.png)}',
+    );
     await symlink("/etc/hosts", resolve(directory, "assets/escape.txt"));
 
     await expect(verifyReleasePackage(directory)).rejects.toMatchObject({
@@ -115,7 +121,10 @@ describe("M5 发布包校验", () => {
           expect.stringContaining("assets/private/upper.JSON"),
           expect.stringContaining("missing-extra.js"),
           expect.stringContaining("missing-srcset.png"),
+          expect.stringContaining("missing-inline.png"),
+          expect.stringContaining("missing-style-block.png"),
           expect.stringContaining("URL 解析后越出发布目录"),
+          expect.stringContaining("safe/../../outside.png"),
           expect.stringContaining("https:/missing-root.js"),
           expect.stringContaining("./../outside.js"),
           expect.stringContaining("不允许 base 元素"),

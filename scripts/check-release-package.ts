@@ -2,6 +2,8 @@ import { lstat, readFile, readdir, realpath } from "node:fs/promises";
 import { dirname, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse, type DefaultTreeAdapterMap } from "parse5";
+import postcss from "postcss";
+import valueParser from "postcss-value-parser";
 
 import { AppError } from "../src/content/index.ts";
 import { projectContent, readAuthoritativeEntries } from "./build-content.ts";
@@ -82,12 +84,62 @@ function extractSrcsetUrls(source: string): string[] {
   return urls;
 }
 
+function decodeCssEscapes(source: string): string {
+  return source.replace(
+    /\\(?:([\da-f]{1,6})(?:\r\n|[ \n\r\t\f])?|(\r\n|[\n\r\f])|(.))/giu,
+    (_escape, hex, newline, character) => {
+      if (hex) {
+        const codePoint = Number.parseInt(hex, 16);
+        if (
+          codePoint === 0 ||
+          codePoint > 0x10ffff ||
+          (codePoint >= 0xd800 && codePoint <= 0xdfff)
+        ) {
+          return "�";
+        }
+        return String.fromCodePoint(codePoint);
+      }
+      return newline ? "" : character;
+    },
+  );
+}
+
+function extractUrlsFromCssValue(source: string): string[] {
+  const references: string[] = [];
+  valueParser(source).walk((node) => {
+    if (node.type !== "function" || node.value.toLocaleLowerCase() !== "url") return;
+    const serialized = valueParser.stringify(node.nodes).trim();
+    const unquoted =
+      (serialized.startsWith('"') && serialized.endsWith('"')) ||
+      (serialized.startsWith("'") && serialized.endsWith("'"))
+        ? serialized.slice(1, -1)
+        : serialized;
+    references.push(decodeCssEscapes(unquoted));
+  });
+  return references;
+}
+
+function extractCssReferences(source: string, inline: boolean): string[] {
+  const references: string[] = [];
+  const root = postcss.parse(inline ? `a{${source}}` : source);
+  root.walkDecls((declaration) => {
+    references.push(...extractUrlsFromCssValue(declaration.value));
+  });
+  root.walkAtRules(/^import$/iu, (rule) => {
+    const parsed = valueParser(rule.params);
+    references.push(...extractUrlsFromCssValue(rule.params));
+    const direct = parsed.nodes.find((node) => node.type === "string" || node.type === "word");
+    if (direct) references.push(decodeCssEscapes(direct.value));
+  });
+  return references;
+}
+
 /**
- * 提取 HTML 与 CSS 中会由浏览器加载的静态引用。
+ * 从构建后源码提取浏览器资源引用，并识别会改变解析基准的真实 `<base>`。
  *
- * 为什么存在：Pages 子路径和缺失资产必须在上传前发现。HTML 交给 parse5，获得与浏览器一致的属性实体、注释和无引号解析；CSS 支持 url() 与字符串 @import。parse5 会按 HTML 标准恢复畸形标记，CSS 未匹配片段会被忽略；排查时查看构建后源码。不能换回正则解析 HTML，也不能只检查 CSS url()。
+ * 为什么存在：Pages 子路径和缺失资产必须在上传前发现。HTML 由 parse5 生成解析树并完成实体、注释和无引号属性处理；递归遍历元素属性、style 属性与 style 节点，同时将真实 base 作为独立信号返回。外部和内联 CSS 由 PostCSS 解析，URL token 再做 CSS escape 解码。PostCSS 解析失败会抛给调用方聚合为 BUILD_FAILED；排查时查看对应构建文件。不能换回 HTML/CSS 正则或丢弃 hasBase 信号。
  */
-function extractReferences(
+function inspectSourceReferences(
   file: string,
   source: string,
 ): { references: string[]; hasBase: boolean } {
@@ -96,13 +148,24 @@ function extractReferences(
     let hasBase = false;
     const visit = (node: DefaultTreeAdapterMap["node"]): void => {
       if ("attrs" in node) {
+        // parse5 只把真实元素交给该分支，注释中的伪标签不会触发 base 禁止规则。
         if (node.tagName === "base") hasBase = true;
         for (const attribute of node.attrs) {
           if (["src", "href", "poster", "data"].includes(attribute.name)) {
             references.push(attribute.value);
           } else if (attribute.name === "srcset") {
             references.push(...extractSrcsetUrls(attribute.value));
+          } else if (attribute.name === "style") {
+            references.push(...extractCssReferences(attribute.value, true));
           }
+        }
+        // style 节点的文本不是普通属性，需要单独交给完整 CSS parser。
+        if (node.tagName === "style") {
+          const css = node.childNodes
+            .filter((child) => child.nodeName === "#text")
+            .map((child) => ("value" in child ? child.value : ""))
+            .join("");
+          references.push(...extractCssReferences(css, false));
         }
       }
       if ("childNodes" in node) node.childNodes.forEach(visit);
@@ -111,13 +174,7 @@ function extractReferences(
     return { references: [...new Set(references)], hasBase };
   }
   if (file.endsWith(".css")) {
-    const urls = [...source.matchAll(/url\(\s*["']?([^"')]+)["']?\s*\)/giu)].map(
-      (match) => match[1],
-    );
-    const imports = [...source.matchAll(/@import\s+(?!url\()(?:"([^"]+)"|'([^']+)')/giu)].map(
-      (match) => match[1] ?? match[2],
-    );
-    return { references: [...new Set([...urls, ...imports])], hasBase: false };
+    return { references: [...new Set(extractCssReferences(source, false))], hasBase: false };
   }
   return { references: [], hasBase: false };
 }
@@ -267,7 +324,15 @@ export async function verifyReleasePackage(
     (candidate) => candidate.endsWith(".html") || candidate.endsWith(".css"),
   )) {
     const source = await readFile(file, "utf8");
-    const extracted = extractReferences(file, source);
+    let extracted: { references: string[]; hasBase: boolean };
+    try {
+      extracted = inspectSourceReferences(file, source);
+    } catch (error) {
+      problems.push(
+        `静态源码无法解析：${relative(outputDirectory, file)}（${error instanceof Error ? error.message : String(error)}）`,
+      );
+      continue;
+    }
     // 项目依赖相对路径适配 GitHub Pages 子目录；真实 base 元素会改写整页基准，因此明确禁止。
     if (extracted.hasBase) {
       problems.push(`发布 HTML 不允许 base 元素：${relative(outputDirectory, file)}`);
