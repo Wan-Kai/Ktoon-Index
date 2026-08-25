@@ -76,6 +76,9 @@ describe("M7 GitHub sandbox 安全边界", () => {
         JSON.stringify({ branch: "feature" }),
       ),
     ).toThrowError(expect.objectContaining({ message: "sandbox 请求包含非 main 的意外分支" }));
+    expect(() =>
+      run(["api", "repos/Wan-Kai/Ktoon-Index", "--method", "DELETE", "--jq", "."]),
+    ).toThrowError(expect.objectContaining({ code: "VALIDATION_FAILED" }));
     expect(base).not.toHaveBeenCalled();
   });
 
@@ -104,7 +107,7 @@ describe("M7 GitHub sandbox 安全边界", () => {
       throw new Error("none 所有权不应删除分支");
     });
     expect(
-      cleanupSandboxBranch("m7-sandbox-conflict", conflict.ownership, forbiddenDelete),
+      cleanupSandboxBranch("m7-sandbox-conflict", conflict.ownership, sha, forbiddenDelete),
     ).toBeUndefined();
     expect(forbiddenDelete).not.toHaveBeenCalled();
 
@@ -116,9 +119,36 @@ describe("M7 GitHub sandbox 安全边界", () => {
     expect(uncertain).toMatchObject({ ownership: "uncertain", error: { code: "GITHUB_ERROR" } });
     const cleanup404: GhRunner = vi.fn(() => notFound);
     expect(
-      cleanupSandboxBranch("m7-sandbox-uncertain", uncertain.ownership, cleanup404),
+      cleanupSandboxBranch("m7-sandbox-uncertain", uncertain.ownership, sha, cleanup404),
     ).toBeUndefined();
     expect(cleanup404).toHaveBeenCalledOnce();
+
+    const cleanupMatchingRef: GhRunner = vi
+      .fn()
+      .mockReturnValueOnce({
+        status: 0,
+        stdout: JSON.stringify({ object: { sha } }),
+        stderr: "",
+      })
+      .mockReturnValueOnce({ status: 0, stdout: "", stderr: "" });
+    expect(
+      cleanupSandboxBranch("m7-sandbox-uncertain", uncertain.ownership, sha, cleanupMatchingRef),
+    ).toBeUndefined();
+    expect(cleanupMatchingRef).toHaveBeenCalledTimes(2);
+
+    const forbiddenRunner: GhRunner = vi
+      .fn()
+      .mockReturnValueOnce(notFound)
+      .mockReturnValueOnce({ status: 1, stdout: "", stderr: "HTTP 403: Forbidden" });
+    const forbidden = attemptSandboxBranchCreation("m7-sandbox-forbidden", sha, forbiddenRunner);
+    expect(forbidden).toMatchObject({ ownership: "none", error: { code: "GITHUB_ERROR" } });
+    const noDeleteAfter403: GhRunner = vi.fn(() => {
+      throw new Error("403 后不应删除分支");
+    });
+    expect(
+      cleanupSandboxBranch("m7-sandbox-forbidden", forbidden.ownership, sha, noDeleteAfter403),
+    ).toBeUndefined();
+    expect(noDeleteAfter403).not.toHaveBeenCalled();
   });
 
   it("清理失败不会覆盖原始验证错误", async () => {

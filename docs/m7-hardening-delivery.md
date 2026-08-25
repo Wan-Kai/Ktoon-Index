@@ -16,9 +16,9 @@ M7 完成内容维护第一阶段的安全硬化、真实远端验证、页面�
 
 集成脚本 `npm run verify:github-sandbox` 使用一次性远端分支和生产 `GitHubContentClient` 验证真实 GitHub API，不修改 `main`。2026-08-25 演练结果：
 
-- 分支：`m7-sandbox-3df2cd93-55e9-4da1-9ca7-a92303a75aff`，完成后已删除；
-- create request：`89b50076-15aa-4738-bd22-f2352afeea40`；commit：`ff72710104f132fbf995d07b6d2adb534db45d7f`；
-- update request：`33e7ab58-3d35-409c-902f-65a54cec3f76`；commit：`1e94dffff7271cdbf677cfb536325175c4aba5cf`；
+- 分支：`m7-sandbox-219403c5-0232-4068-b53e-5c507db5f13a`，完成后已删除；
+- create request：`0b6f99ce-ace1-4f9a-ad29-bb750f82facd`；commit：`eb4fc5b651fe29d6ce1b60ed7f4b176246c4b515`；
+- update request：`51df0567-a0eb-477d-8ef5-aa455aabe5cf`；commit：`ee53682e44470d5a448f7911923f0e68f6a79f94`；
 - create/update 原 request ID 重放均返回 `idempotent: true`，没有重复 commit；
 - 过期 version/SHA 返回 `VERSION_CONFLICT`，失败前后分支 head 不变；
 - 每个成功 commit 只修改一个条目，并包含 operation、entry ID、content version 与 request ID trailers；

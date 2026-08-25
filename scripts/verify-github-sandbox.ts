@@ -126,7 +126,9 @@ export function sandboxRunner(branch: string, runGh: GhRunner = defaultGhRunner)
   return (args, input) => {
     const isAuthProbe = args.length === 2 && args[0] === "auth" && args[1] === "status";
     const isRepositoryProbe =
-      args[0] === "api" && args[1] === repositoryEndpoint && args.includes("--jq") && !input;
+      input === undefined &&
+      JSON.stringify(args) ===
+        JSON.stringify(["api", repositoryEndpoint, "--jq", "{default_branch,permissions}"]);
     if (isAuthProbe || isRepositoryProbe) return runGh(args, input);
 
     const methodIndex = args.indexOf("--method");
@@ -253,11 +255,10 @@ export function attemptSandboxBranchCreation(
     JSON.stringify({ ref: `refs/heads/${branch}`, sha }),
   );
   if (created.status !== 0) {
-    const explicitConflict = /HTTP 422|already exists|reference already exists/iu.test(
-      created.stderr,
-    );
+    const resultIsUncertain =
+      /HTTP 5\d\d/iu.test(created.stderr) || classifyGhStderr(created.stderr) === "network_failed";
     return {
-      ownership: explicitConflict ? "none" : "uncertain",
+      ownership: resultIsUncertain ? "uncertain" : "none",
       error: new AppError("GITHUB_ERROR", "创建 sandbox 分支失败", {
         branch,
         diagnostic: classifyGhStderr(created.stderr),
@@ -280,14 +281,40 @@ export function attemptSandboxBranchCreation(
 /**
  * 只清理由本次运行拥有或结果不确定的一次性分支。
  *
- * 触发条件：主验证结束且 ownership 不是 none。处理方式：DELETE 唯一 ref；成功或 404 均视为已清理，其他失败返回脱敏 AppError 供主流程合并。失败后的外部表现包含分支、退出码和诊断类别。所有权不变量：none 永不发 DELETE，避免碰撞时删除既有分支。
+ * 触发条件：主验证结束且 ownership 不是 none。处理方式：owned 直接删除；uncertain 先读取 ref 并核对创建时的目标 SHA，匹配后才删除；不存在视为已清理。读取、所有权或删除失败返回脱敏 AppError 供主流程合并。所有权不变量：none 永不发 DELETE，uncertain 的 SHA 不匹配也永不删除，避免碰撞时破坏既有分支。
  */
 export function cleanupSandboxBranch(
   branch: string,
   ownership: SandboxBranchOwnership,
+  expectedSha: string,
   runGh: GhRunner = defaultGhRunner,
 ): AppError | undefined {
   if (ownership === "none") return undefined;
+  if (ownership === "uncertain") {
+    const probe = runGh([
+      "api",
+      "--method",
+      "GET",
+      `${repositoryEndpoint}/git/ref/heads/${branch}`,
+    ]);
+    if (/HTTP 404|not found/iu.test(probe.stderr)) return undefined;
+    if (probe.status !== 0) {
+      return new AppError("GITHUB_ERROR", "无法确认不确定 sandbox 分支的所有权", {
+        branch,
+        diagnostic: classifyGhStderr(probe.stderr),
+        exit_status: probe.status,
+      });
+    }
+    try {
+      const response = requireRecord(JSON.parse(probe.stdout) as unknown, "读取 sandbox 分支");
+      const object = requireRecord(response.object, "读取 sandbox 分支 object");
+      if (object.sha !== expectedSha) {
+        return new AppError("GITHUB_ERROR", "sandbox 分支目标 SHA 不符，拒绝删除", { branch });
+      }
+    } catch {
+      return new AppError("GITHUB_ERROR", "sandbox 分支所有权响应异常，拒绝删除", { branch });
+    }
+  }
   const result = runGh([
     "api",
     "--method",
@@ -318,6 +345,7 @@ async function verifyGitHubSandbox(): Promise<JsonRecord> {
   const suffix = randomUUID();
   const branch = `m7-sandbox-${suffix}`;
   let branchOwnership: SandboxBranchOwnership = "none";
+  let baseSha = "";
   let cleanupError: AppError | undefined;
   let primaryError: unknown;
   let outcome: JsonRecord | undefined;
@@ -334,6 +362,7 @@ async function verifyGitHubSandbox(): Promise<JsonRecord> {
     if (typeof object.sha !== "string" || !/^[a-f0-9]{40}$/u.test(object.sha)) {
       throw new AppError("GITHUB_ERROR", "main ref 缺少合法 commit SHA");
     }
+    baseSha = object.sha;
     const branchAttempt = attemptSandboxBranchCreation(branch, object.sha);
     branchOwnership = branchAttempt.ownership;
     if ("error" in branchAttempt) throw branchAttempt.error;
@@ -481,7 +510,7 @@ async function verifyGitHubSandbox(): Promise<JsonRecord> {
     primaryError = error;
   }
 
-  cleanupError = cleanupSandboxBranch(branch, branchOwnership);
+  cleanupError = cleanupSandboxBranch(branch, branchOwnership, baseSha);
 
   if (primaryError) {
     if (cleanupError) {
