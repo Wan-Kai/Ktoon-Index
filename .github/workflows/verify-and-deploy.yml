@@ -27,7 +27,9 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci
-      - name: Generate public content
+      - name: Validate authoritative content
+        run: npm run verify:content
+      - name: Regenerate public content
         run: npm run build:content
       - name: Check formatting
         run: npm run format:check
@@ -37,6 +39,8 @@ jobs:
         run: npm test
       - name: Build site
         run: npm run build
+      - name: Verify release package
+        run: npm run verify:release
       - name: Configure Pages
         uses: actions/configure-pages@v6
       - name: Upload Pages artifact

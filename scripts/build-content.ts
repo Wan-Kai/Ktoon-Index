@@ -123,7 +123,7 @@ if (fileURLToPath(import.meta.url) === resolve(process.argv[1] ?? "")) {
     const checkOnly = process.argv.includes("--check");
     const result = await buildContent({ write: !checkOnly });
     process.stdout.write(
-      `${JSON.stringify({ ok: true, command: "build:content", phase: "M4", check: checkOnly, ...result })}\n`,
+      `${JSON.stringify({ ok: true, command: "build:content", phase: "M5", check: checkOnly, ...result })}\n`,
     );
   } catch (error) {
     const appError =

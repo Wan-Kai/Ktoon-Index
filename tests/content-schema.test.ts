@@ -70,6 +70,9 @@ describe("M1 Entry Schema", () => {
   });
 
   it("拒绝非 HTTPS 链接与超出白名单的 Markdown", () => {
+    expect(() => createEntry({ ...createInput, category: "unknown" })).toThrowError(
+      expect.objectContaining({ code: "VALIDATION_FAILED" }),
+    );
     expect(() =>
       createEntry({ ...createInput, source: { title: "bad", url: "http://example.com" } }),
     ).toThrow(AppError);
@@ -88,6 +91,9 @@ describe("M1 Entry Schema", () => {
     expect(() =>
       renderRestrictedMarkdown("[凭据](https://user:pass@example.com/path)"),
     ).toThrowError(expect.objectContaining({ code: "VALIDATION_FAILED" }));
+    expect(() => parseEntry("---\nid: [broken\n---\n正文")).toThrowError(
+      expect.objectContaining({ code: "VALIDATION_FAILED" }),
+    );
   });
 
   it("公开投影不包含维护字段", () => {
