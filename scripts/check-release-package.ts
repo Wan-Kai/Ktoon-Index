@@ -1,5 +1,5 @@
 import { lstat, readFile, readdir, realpath } from "node:fs/promises";
-import { dirname, relative, resolve } from "node:path";
+import { dirname, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { AppError } from "../src/content/index.ts";
@@ -27,7 +27,7 @@ async function listFiles(directory: string): Promise<string[]> {
 /**
  * 统一维护字段键名的大小写与分隔符表示。
  *
- * 为什么存在：`request_id`、`request-id` 与 `requestId` 都属于同一泄漏。键名进入本函数后仅用于安全比较；非字符串键不会来自 JSON。排查时检查命中的原字段。不能删除分隔符归一，否则改写命名即可绕过禁键。
+ * 为什么存在：`request_id`、`request-id` 与 `requestId` 都属于同一泄漏。键名进入本函数后仅用于安全比较；纯字符串变换没有失败分支。排查时检查命中的原字段。不能删除分隔符归一，否则改写命名即可绕过禁键。
  */
 function normalizeKey(key: string): string {
   return key.replace(/[_-]/gu, "").toLocaleLowerCase();
@@ -56,6 +56,32 @@ function findForbiddenKeys(value: unknown, path = "$", problems: string[] = []):
 }
 
 /**
+ * 按 srcset 候选语法提取 URL，并保留 data URI 后面的本地候选。
+ *
+ * 为什么存在：data URI 自身包含逗号，直接 split 或整组跳过都会漏掉后续资源。扫描器先读取不含空白的 URL token，再跳过 descriptor 到候选分隔符；畸形输入会尽量返回已识别 URL，不抛错。排查时检查原 srcset 的空白与 descriptor。不能把整个 data: 开头值视为单一候选。
+ */
+function extractSrcsetUrls(source: string): string[] {
+  const urls: string[] = [];
+  let cursor = 0;
+  while (cursor < source.length) {
+    while (cursor < source.length && /[\s,]/u.test(source[cursor])) cursor += 1;
+    if (cursor >= source.length) break;
+
+    const start = cursor;
+    while (cursor < source.length && !/\s/u.test(source[cursor])) cursor += 1;
+    const rawUrl = source.slice(start, cursor);
+    const endedAtCandidateSeparator = /,+$/u.test(rawUrl);
+    const url = rawUrl.replace(/,+$/u, "");
+    if (url) urls.push(url);
+    if (endedAtCandidateSeparator) continue;
+
+    while (cursor < source.length && source[cursor] !== ",") cursor += 1;
+    if (source[cursor] === ",") cursor += 1;
+  }
+  return urls;
+}
+
+/**
  * 提取 HTML 与 CSS 中会由浏览器加载的静态引用。
  *
  * 为什么存在：Pages 子路径和缺失资产必须在上传前发现。HTML 支持带引号或无引号的 src/href/poster/data/srcset，CSS 支持 url() 与字符串 @import；其他文件返回空集合。排查时查看构建后源码。不能收窄为双引号属性或只检查 url()，否则合法语法可绕过资源闭环。
@@ -71,8 +97,7 @@ function extractReferences(file: string, source: string): string[] {
       ...source.matchAll(/\bsrcset\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/giu),
     ].flatMap((match) => {
       const value = match[1] ?? match[2] ?? match[3];
-      if (value.trim().startsWith("data:")) return [];
-      return value.split(",").map((candidate) => candidate.trim().split(/\s+/u, 1)[0]);
+      return extractSrcsetUrls(value);
     });
     return [...new Set([...attributes, ...srcsets])];
   }
@@ -112,14 +137,14 @@ async function checkLocalReference(
 
   const target = resolve(dirname(sourceFile), pathname);
   const escaped = relative(outputDirectory, target);
-  if (escaped.startsWith("..") || escaped === "..") {
+  if (escaped === ".." || escaped.startsWith(`..${sep}`)) {
     problems.push(`静态引用越出发布目录：${relative(outputDirectory, sourceFile)} -> ${reference}`);
     return true;
   }
   try {
     const realTarget = await realpath(target);
     const realEscaped = relative(realOutputDirectory, realTarget);
-    if (realEscaped.startsWith("..") || realEscaped === "..") {
+    if (realEscaped === ".." || realEscaped.startsWith(`..${sep}`)) {
       problems.push(
         `静态引用真实路径越出发布目录：${relative(outputDirectory, sourceFile)} -> ${reference}`,
       );
@@ -133,7 +158,7 @@ async function checkLocalReference(
 /**
  * 验证最终 dist 确实由当前 Markdown 重建，并且可独立作为 GitHub Pages 发布包运行。
  *
- * Actions 在 Vite 构建后调用本函数：它重新投影事实源，与 dist 中的 index/detail JSON 逐字节语义比对，再检查完整 data 白名单、所有公开 JSON 禁键、静态资源真实路径和 symlink。任何问题聚合为 BUILD_FAILED；修复事实源或构建配置后重新提交即可恢复。这里不能降级为 warning，也不能改成只检查仓库根目录的 data。
+ * Actions 在 Vite 构建后调用本函数：它重新投影事实源，与 dist 中的 index/detail JSON 逐字节语义比对，再检查完整 data 白名单、dist 内全部 JSON 禁键、静态资源真实路径和 symlink。任何问题聚合为 BUILD_FAILED；修复事实源或构建配置后重新提交即可恢复。这里不能降级为 warning，也不能改成只检查仓库根目录的 data。
  */
 export async function verifyReleasePackage(
   outputDirectory = resolve(projectRoot, "dist"),
@@ -187,7 +212,7 @@ export async function verifyReleasePackage(
   }
 
   const publicJson = new Map<string, unknown>();
-  for (const file of actualDataFiles.filter((candidate) => candidate.endsWith(".json"))) {
+  for (const file of files.filter((candidate) => candidate.endsWith(".json"))) {
     try {
       const value = JSON.parse(await readFile(file, "utf8"));
       publicJson.set(file, value);
