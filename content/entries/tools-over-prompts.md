@@ -5,10 +5,11 @@ summary: Mechanism is a more dependable safety layer than asking a model to beha
 category: articles
 tags: []
 rating: 人上人
-version: 1
-status: published
+version: 2
+status: recycled
 added_at: '2026-08-06T10:00:00.000Z'
-updated_at: '2026-08-06T10:00:00.000Z'
+updated_at: '2026-08-26T08:45:04.301Z'
 source: null
 references: []
 ---
+
