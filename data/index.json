@@ -4,13 +4,65 @@
       "id": "toolkit",
       "label": "Toolkit",
       "labelZh": "工具箱",
-      "entries": []
+      "entries": [
+        {
+          "id": "grill-with-docs",
+          "rating": "夯",
+          "addedAt": "2026-08-26T09:47:14.370Z",
+          "updatedAt": "2026-08-26T09:47:14.370Z",
+          "tags": [],
+          "title": "Grill With Docs",
+          "description": "结合现有文档持续提问并校准理解的 Skill。",
+          "url": "./detail.html?id=grill-with-docs"
+        },
+        {
+          "id": "grill-me",
+          "rating": "夯",
+          "addedAt": "2026-08-26T09:47:09.240Z",
+          "updatedAt": "2026-08-26T09:47:09.240Z",
+          "tags": [],
+          "title": "Grill Me",
+          "description": "通过连续提问澄清计划、决策或产品想法的 Skill。",
+          "url": "./detail.html?id=grill-me"
+        },
+        {
+          "id": "impeccable",
+          "rating": "夯",
+          "addedAt": "2026-08-26T09:46:57.619Z",
+          "updatedAt": "2026-08-26T09:46:57.619Z",
+          "tags": [],
+          "title": "Impeccable",
+          "description": "面向产品界面设计、重设计与视觉优化的 Agent Skill。",
+          "url": "./detail.html?id=impeccable"
+        },
+        {
+          "id": "design-taste-frontend",
+          "rating": "NPC",
+          "addedAt": "2026-08-26T09:47:02.420Z",
+          "updatedAt": "2026-08-26T09:47:02.420Z",
+          "tags": [],
+          "title": "Design Taste Frontend",
+          "description": "用于审查和优化前端页面审美、排版与视觉层级的 Skill。",
+          "url": "./detail.html?id=design-taste-frontend"
+        }
+      ]
     },
     {
       "id": "products",
       "label": "Products",
       "labelZh": "产品",
-      "entries": []
+      "entries": [
+        {
+          "id": "copilotkit",
+          "rating": "夯",
+          "addedAt": "2026-08-26T09:47:18.960Z",
+          "updatedAt": "2026-08-26T09:47:18.960Z",
+          "tags": [],
+          "title": "CopilotKit",
+          "description": "用于在真实应用中连接 Agent 与用户界面的前端栈，支持生成式 UI、共享状态和人在回路。",
+          "url": "./detail.html?id=copilotkit"
+        }
+      ]
     },
     {
       "id": "articles",
@@ -22,7 +74,28 @@
       "id": "standards",
       "label": "Standards",
       "labelZh": "标准",
-      "entries": []
+      "entries": [
+        {
+          "id": "ag-ui",
+          "rating": "夯",
+          "addedAt": "2026-08-26T09:47:23.664Z",
+          "updatedAt": "2026-08-26T09:47:23.664Z",
+          "tags": [],
+          "title": "AG-UI",
+          "description": "连接 AI Agent 与面向用户应用的开放事件协议，支持实时、多模态和交互式体验。",
+          "url": "./detail.html?id=ag-ui"
+        },
+        {
+          "id": "mcp-spec",
+          "rating": "人上人",
+          "addedAt": "2026-08-08T10:00:00.000Z",
+          "updatedAt": "2026-08-26T09:49:03.890Z",
+          "tags": [],
+          "title": "Model Context Protocol",
+          "description": "连接 Agent 与外部工具和数据源的开放协议。",
+          "url": "./detail.html?id=mcp-spec"
+        }
+      ]
     },
     {
       "id": "ideas",

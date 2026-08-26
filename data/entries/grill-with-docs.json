@@ -1,0 +1,17 @@
+{
+  "id": "grill-with-docs",
+  "title": "Grill With Docs",
+  "summary": "结合现有文档持续提问并校准理解的 Skill。",
+  "category": "toolkit",
+  "categoryLabel": "Toolkit",
+  "categoryLabelZh": "工具箱",
+  "archiveCode": "AI-IX / TOOLKIT / 001",
+  "folioNumber": "001",
+  "tags": [],
+  "rating": "夯",
+  "addedAt": "2026-08-26T09:47:14.370Z",
+  "updatedAt": "2026-08-26T09:47:14.370Z",
+  "personalTakeHtml": "<p>根据现有文档拷问你，直到理解一致。</p>",
+  "source": null,
+  "references": []
+}

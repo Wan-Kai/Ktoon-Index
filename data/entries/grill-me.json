@@ -1,0 +1,17 @@
+{
+  "id": "grill-me",
+  "title": "Grill Me",
+  "summary": "通过连续提问澄清计划、决策或产品想法的 Skill。",
+  "category": "toolkit",
+  "categoryLabel": "Toolkit",
+  "categoryLabelZh": "工具箱",
+  "archiveCode": "AI-IX / TOOLKIT / 002",
+  "folioNumber": "002",
+  "tags": [],
+  "rating": "夯",
+  "addedAt": "2026-08-26T09:47:09.240Z",
+  "updatedAt": "2026-08-26T09:47:09.240Z",
+  "personalTakeHtml": "<p>持续拷问你，直到 Agent 与你理解一致。</p>",
+  "source": null,
+  "references": []
+}

@@ -3,7 +3,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
-import { parseEntry, transitionEntryStatus } from "../src/content/index.ts";
+import { createEntry, parseEntry, transitionEntryStatus } from "../src/content/index.ts";
 import {
   buildContent,
   projectContent,
@@ -69,7 +69,15 @@ describe("M4 全量 Markdown 公开读模型", () => {
   });
 
   it("合成 published 条目仍生成首页链接与白名单详情", () => {
-    const published = ensurePublished(readEntries()[0]);
+    const published = createEntry(
+      {
+        id: "empty-optionals-fixture",
+        title: "Empty optionals fixture",
+        summary: "Verifies the public projection without optional fields.",
+        category: "toolkit",
+      },
+      new Date("2098-12-31T00:00:00.000Z"),
+    );
     const projected = projectContent([published]);
     const visibleEntries = projected.categories.flatMap((category) => category.entries);
 
