@@ -5,10 +5,10 @@ summary: An open protocol for connecting AI applications to tools and data sourc
 category: standards
 tags: []
 rating: 夯
-version: 2
-status: recycled
+version: 3
+status: published
 added_at: '2026-08-08T10:00:00.000Z'
-updated_at: '2026-08-26T08:44:37.611Z'
+updated_at: '2026-08-26T09:48:56.696Z'
 source:
   title: Model Context Protocol
   url: 'https://modelcontextprotocol.io/specification/'
