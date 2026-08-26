@@ -2,7 +2,7 @@
 
 本路线图把已经确认的内容维护方案拆成可独立验收的阶段。实施顺序遵循一条原则：先让一个真实条目从 Markdown 完整流向现有页面，再补齐全部 CRUD、Skill 和自动发布，避免基础设施先行而迟迟没有可用闭环。
 
-当前进度：M0 至 M8 已全部完成。M0–M7 完成内容维护第一阶段，M8 完成页面性能硬化。M1 首条纵向链路见 [`m1-vertical-slice.md`](./m1-vertical-slice.md)，M2 查询契约见 [`m2-readonly-cli.md`](./m2-readonly-cli.md)，M3 写入契约见 [`m3-controlled-writes.md`](./m3-controlled-writes.md)，M4 全量事实源与页面读模型见 [`m4-full-migration.md`](./m4-full-migration.md)，M5 发布校验与恢复语义见 [`m5-release-hardening.md`](./m5-release-hardening.md)，M6 Skill 契约见 [`m6-agent-skill.md`](./m6-agent-skill.md)，M7 验证与恢复证据见 [`m7-hardening-delivery.md`](./m7-hardening-delivery.md)，M8 性能证据见 [`m8-performance-hardening.md`](./m8-performance-hardening.md)。
+当前进度：M0 至 M9 已全部完成。M0–M7 完成内容维护第一阶段，M8 完成页面性能硬化，M9 完成公开站可发现性与分享基础。M1 首条纵向链路见 [`m1-vertical-slice.md`](./m1-vertical-slice.md)，M2 查询契约见 [`m2-readonly-cli.md`](./m2-readonly-cli.md)，M3 写入契约见 [`m3-controlled-writes.md`](./m3-controlled-writes.md)，M4 全量事实源与页面读模型见 [`m4-full-migration.md`](./m4-full-migration.md)，M5 发布校验与恢复语义见 [`m5-release-hardening.md`](./m5-release-hardening.md)，M6 Skill 契约见 [`m6-agent-skill.md`](./m6-agent-skill.md)，M7 验证与恢复证据见 [`m7-hardening-delivery.md`](./m7-hardening-delivery.md)，M8 性能证据见 [`m8-performance-hardening.md`](./m8-performance-hardening.md)，M9 可发现性契约见 [`m9-discoverability.md`](./m9-discoverability.md)。
 
 ## 当前前置条件
 
@@ -228,6 +228,22 @@ tests/
 - 首页和详情页的生产 HTML preload 与 CSS 唯一复用同一带哈希纸张纹理，不产生重复请求。
 - 性能契约、全部既有测试、生产构建、发布包校验和 GitHub Pages 部署通过。
 
+## M9：公开站可发现性与分享基础
+
+### 任务
+
+- 为首页补齐自指 canonical、Open Graph、Twitter large image 与 favicon。
+- 详情页只在具体公开 JSON 成功加载后，从不可变 ID 注入唯一绝对 canonical 与条目级分享元信息。
+- 从 published Markdown 自动生成 XML sitemap，回收条目不得残留公开 URL。
+- 发布包强制包含并校验 favicon、robots 与 sitemap，sitemap 必须与当前事实源完全一致。
+- 使用真实 Chrome 验证首页筛选参数、详情页动态 head 与控制台状态。
+
+### 验收
+
+- 首页筛选 URL 统一指向首页 canonical；详情页 canonical、Open Graph URL 和实际 ID 一致。
+- sitemap 只包含首页和二十个 published 详情 URL，`lastmod` 来自对应 `updated_at`。
+- 页面不再请求缺失 favicon；全部测试、生产构建与发布包检查通过。
+
 ## 推荐执行顺序
 
 ```text
@@ -248,6 +264,8 @@ M6 Skill
 M7 硬化交付
   ↓
 M8 性能硬化
+  ↓
+M9 可发现性与分享基础
 ```
 
 M1 是第一个必须尽快完成的里程碑。如果 M1 不能让一份 Markdown 无损驱动现有首页和详情页，后续 CLI、GitHub 写入和 Skill 都不应继续扩展。这里的 MCP Inspector 仅是当前资料最完整的样例条目，与是否建设 MCP 能力无关。

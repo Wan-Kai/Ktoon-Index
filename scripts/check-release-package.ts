@@ -6,7 +6,12 @@ import postcss from "postcss";
 import valueParser from "postcss-value-parser";
 
 import { AppError } from "../src/content/index.ts";
-import { projectContent, readAuthoritativeEntries } from "./build-content.ts";
+import {
+  buildRobots,
+  buildSitemap,
+  projectContent,
+  readAuthoritativeEntries,
+} from "./build-content.ts";
 
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const forbiddenPublicKeys = new Set(["maintainer", "requestid", "sha", "status", "version"]);
@@ -382,13 +387,15 @@ async function checkLocalReference(
 /**
  * 验证最终 dist 确实由当前 Markdown 重建，并且可独立作为 GitHub Pages 发布包运行。
  *
- * Actions 在 Vite 构建后调用本函数：它重新投影事实源，与 dist 中的 index/detail JSON 逐字节语义比对，再检查完整 data 白名单、dist 内全部 JSON 禁键、静态资源真实路径和 symlink。任何问题聚合为 BUILD_FAILED；修复事实源或构建配置后重新提交即可恢复。这里不能降级为 warning，也不能改成只检查仓库根目录的 data。
+ * Actions 在 Vite 构建后调用本函数：它重新投影事实源，与 dist 中的 index/detail JSON 和 sitemap 比对，校验 robots 的站点根地址，再检查完整 data 白名单、全部 JSON 禁键、静态资源真实路径和 symlink。任何发现都会聚合为 BUILD_FAILED，产物不得上传；修复事实源或构建配置并完整重建后恢复。这里不能降级为 warning，也不能只检查仓库根目录的 data/public 源文件。
  */
 export async function verifyReleasePackage(
   outputDirectory = resolve(projectRoot, "dist"),
 ): Promise<{ files: number; entries: number; details: number; references: number }> {
   const problems: string[] = [];
-  const expected = projectContent(await readAuthoritativeEntries());
+  const authoritativeEntries = await readAuthoritativeEntries();
+  const expected = projectContent(authoritativeEntries);
+  const expectedSitemap = buildSitemap(authoritativeEntries);
   const expectedIndex = { categories: expected.categories };
   const expectedDetails = new Map(expected.details.map((detail) => [detail.id, detail.data]));
 
@@ -404,7 +411,16 @@ export async function verifyReleasePackage(
     });
   }
 
-  for (const required of ["index.html", "detail.html", "app.js", "data/index.json"]) {
+  for (const required of [
+    "index.html",
+    "detail.html",
+    "app.js",
+    "favicon.svg",
+    "share-image.jpg",
+    "robots.txt",
+    "sitemap.xml",
+    "data/index.json",
+  ]) {
     if (!files.includes(resolve(outputDirectory, required))) {
       problems.push(`发布文件缺失：${required}`);
     }
@@ -464,6 +480,22 @@ export async function verifyReleasePackage(
     } else if (JSON.stringify(actualDetail) !== JSON.stringify(expectedDetail)) {
       problems.push(`详情公开 JSON 与当前 Markdown 投影不一致：${id}`);
     }
+  }
+
+  const sitemapPath = resolve(outputDirectory, "sitemap.xml");
+  try {
+    if ((await readFile(sitemapPath, "utf8")) !== expectedSitemap) {
+      problems.push("dist/sitemap.xml 与当前 Markdown 投影不一致");
+    }
+  } catch {
+    problems.push("公开 sitemap 不存在或无法读取：sitemap.xml");
+  }
+  try {
+    if ((await readFile(resolve(outputDirectory, "robots.txt"), "utf8")) !== buildRobots()) {
+      problems.push("dist/robots.txt 与当前站点根地址不一致");
+    }
+  } catch {
+    problems.push("公开 robots 不存在或无法读取：robots.txt");
   }
 
   let references = 0;

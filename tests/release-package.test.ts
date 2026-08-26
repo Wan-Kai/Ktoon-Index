@@ -4,7 +4,12 @@ import { tmpdir } from "node:os";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { projectContent, readAuthoritativeEntries } from "../scripts/build-content.ts";
+import {
+  buildRobots,
+  buildSitemap,
+  projectContent,
+  readAuthoritativeEntries,
+} from "../scripts/build-content.ts";
 import { verifyReleasePackage } from "../scripts/check-release-package.ts";
 
 const temporaryDirectories: string[] = [];
@@ -13,13 +18,18 @@ async function createReleaseFixture(): Promise<string> {
   const directory = await mkdtemp(resolve(tmpdir(), "ktoon-release-"));
   temporaryDirectories.push(directory);
   await mkdir(resolve(directory, "data/entries"), { recursive: true });
-  const projected = projectContent(await readAuthoritativeEntries());
+  const entries = await readAuthoritativeEntries();
+  const projected = projectContent(entries);
   await writeFile(
     resolve(directory, "index.html"),
     '<!-- <base href="./ignored/"> --><script src="./app.js"></script><link href="./..asset.css" rel="stylesheet">',
   );
   await writeFile(resolve(directory, "detail.html"), '<a href="./">Index</a>');
   await writeFile(resolve(directory, "app.js"), "void 0;\n");
+  await writeFile(resolve(directory, "favicon.svg"), '<svg xmlns="http://www.w3.org/2000/svg"/>\n');
+  await writeFile(resolve(directory, "share-image.jpg"), "fixture\n");
+  await writeFile(resolve(directory, "robots.txt"), buildRobots());
+  await writeFile(resolve(directory, "sitemap.xml"), buildSitemap(entries));
   await writeFile(resolve(directory, "..asset.css"), "body{}\n");
   await writeFile(resolve(directory, "imported.css"), "body{}\n");
   await writeFile(
@@ -71,6 +81,25 @@ describe("M5 发布包校验", () => {
         problems: expect.arrayContaining([
           expect.stringContaining("静态引用缺失"),
           expect.stringContaining("公开数据泄漏维护字段"),
+        ]),
+      },
+    });
+  });
+
+  it("拒绝陈旧 sitemap 与错误 robots 站点地址", async () => {
+    const directory = await createReleaseFixture();
+    await writeFile(resolve(directory, "sitemap.xml"), "<urlset/>\n");
+    await writeFile(
+      resolve(directory, "robots.txt"),
+      "User-agent: *\nAllow: /\n\nSitemap: https://example.com/sitemap.xml\n",
+    );
+
+    await expect(verifyReleasePackage(directory)).rejects.toMatchObject({
+      code: "BUILD_FAILED",
+      details: {
+        problems: expect.arrayContaining([
+          "dist/sitemap.xml 与当前 Markdown 投影不一致",
+          "dist/robots.txt 与当前站点根地址不一致",
         ]),
       },
     });

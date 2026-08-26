@@ -239,6 +239,46 @@ function formatEditorialDate(value) {
   return `${months[date.getUTCMonth()]} ${String(date.getUTCDate()).padStart(2, "0")}, ${date.getUTCFullYear()}`;
 }
 
+const PRODUCTION_SITE_URL = "https://wan-kai.github.io/Ktoon-Index/";
+
+function setMetaContent(selector, content, attributes) {
+  let meta = document.querySelector(selector);
+  if (!meta && attributes) {
+    meta = document.createElement("meta");
+    for (const [name, value] of Object.entries(attributes)) meta.setAttribute(name, value);
+    document.head.append(meta);
+  }
+  meta?.setAttribute("content", content);
+}
+
+/**
+ * 在详情数据成功加载后补齐与当前 ID 一致的可发现性元信息。
+ *
+ * 为什么存在：GitHub Pages 只返回一份 detail.html，源 HTML 无法提前知道 query 中的条目，写固定 canonical 会把全部详情错误合并。
+ * 数据如何流动：已校验的公开详情投影提供标题与摘要，URL 只由生产根地址和不可变 ID 组成；canonical、Open Graph 与 Twitter 共用同一组值。
+ * 何时失败：详情 JSON 加载失败时本函数不会运行，页面保留通用元信息且不会声明错误 canonical。
+ * 如何排查：检查 head 中唯一的 `link[rel=canonical]` 与 `meta[property=og:url]`，再核对 URL 参数和 data/entries/<id>.json。
+ * 什么不能改：detail.html 源码不能预置无 ID 的 canonical，也不能使用当前 location 的任意 query，以免追踪参数和未知参数进入索引。
+ */
+function updateDetailMetadata(entry) {
+  const title = `${entry.title} · AI Index`;
+  const canonicalUrl = `${PRODUCTION_SITE_URL}detail.html?id=${encodeURIComponent(entry.id)}`;
+  document.title = title;
+  setMetaContent('meta[name="description"]', entry.summary);
+  setMetaContent('meta[property="og:title"]', title);
+  setMetaContent('meta[property="og:description"]', entry.summary);
+  setMetaContent('meta[property="og:url"]', canonicalUrl, { property: "og:url" });
+  setMetaContent('meta[name="twitter:title"]', title);
+  setMetaContent('meta[name="twitter:description"]', entry.summary);
+  let canonical = document.querySelector('link[rel="canonical"]');
+  if (!canonical) {
+    canonical = document.createElement("link");
+    canonical.setAttribute("rel", "canonical");
+    document.head.append(canonical);
+  }
+  canonical.setAttribute("href", canonicalUrl);
+}
+
 /**
  * 把单条公开 JSON 填入既有报纸档案结构，不重建视觉 DOM。
  *
@@ -257,9 +297,6 @@ function renderDetailEntry() {
     ? ""
     : addedDate.toISOString().slice(0, 10).replaceAll("-", ".");
 
-  document.title = `${entry.title} · AI Index`;
-  const description = document.querySelector('meta[name="description"]');
-  description?.setAttribute("content", `${entry.title} - AI Index entry.`);
   document.querySelector("#entry-title").textContent = entry.title;
   document.querySelector("#entry-summary").textContent = entry.summary;
   document.querySelector("#detail-folio-code").textContent = `AI INDEX / PERSONAL FILE ${entry.folioNumber}`;
@@ -722,14 +759,15 @@ document.addEventListener("click", (event) => {
  * 在首次渲染前同时取得首页和可选详情数据。
  *
  * 为什么存在：如果先渲染空壳再异步替换，会出现错误计数、搜索遗漏和详情硬编码闪烁。
- * 数据如何流动：首页读模型始终加载；详情页额外加载当前 ID，全部成功后统一应用语言并渲染。
- * 何时失败：任一公开 JSON 不可用时记录错误，并在详情标题或首页分类区显示明确失败文案。
- * 如何排查：直接访问对应 JSON，随后运行内容构建与 Vite 服务；浏览器控制台保留原始异常。
- * 什么不能改：不能用 app.js 中的 MCP Inspector 常量兜底，那会破坏 Markdown 唯一事实源。
+ * 数据如何流动：首页读模型始终加载；详情页额外加载当前 ID，两份 JSON 全部成功后先注入条目 canonical/分享元信息，再应用语言并渲染正文。
+ * 何时失败：任一公开 JSON 不可用时不注入详情 head，保留通用元信息，同时记录错误并在详情标题或首页分类区显示失败文案。
+ * 如何排查：直接访问对应 JSON，再检查 head 是否只在成功路径出现 canonical，随后运行内容构建与 Vite 服务；浏览器控制台保留原始异常。
+ * 什么不能改：不能把 head 注入移到 Promise.all 前，也不能用 app.js 中的 MCP Inspector 常量兜底；前者会索引失败条目，后者会破坏 Markdown 唯一事实源。
  */
 async function initializeApplication() {
   try {
     await Promise.all([loadGeneratedIndex(), loadGeneratedDetail()]);
+    if (currentDetailEntry) updateDetailMetadata(currentDetailEntry);
     applyLanguage();
   } catch (error) {
     console.error("AI Index data initialization failed", error);

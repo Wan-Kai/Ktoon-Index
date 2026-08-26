@@ -28,7 +28,7 @@ describe("M6 Agent Skill 契约", () => {
     expect(syntax.status).toBe(0);
     expect(result.status).toBe(0);
     expect(result.stderr).toBe("");
-    expect(result.stdout.trim()).toBe("0.8.0");
+    expect(result.stdout.trim()).toBe("0.9.0");
   });
 
   it("通过 runner 暴露现有单条目 CRUD 命令", () => {

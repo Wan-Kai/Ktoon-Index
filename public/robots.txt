@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://wan-kai.github.io/Ktoon-Index/sitemap.xml
