@@ -2,7 +2,7 @@
 
 本路线图把已经确认的内容维护方案拆成可独立验收的阶段。实施顺序遵循一条原则：先让一个真实条目从 Markdown 完整流向现有页面，再补齐全部 CRUD、Skill 和自动发布，避免基础设施先行而迟迟没有可用闭环。
 
-当前进度：M0 至 M7 已全部完成，内容维护第一阶段交付结束。M1 首条纵向链路见 [`m1-vertical-slice.md`](./m1-vertical-slice.md)，M2 查询契约见 [`m2-readonly-cli.md`](./m2-readonly-cli.md)，M3 写入契约见 [`m3-controlled-writes.md`](./m3-controlled-writes.md)，M4 全量事实源与页面读模型见 [`m4-full-migration.md`](./m4-full-migration.md)，M5 发布校验与恢复语义见 [`m5-release-hardening.md`](./m5-release-hardening.md)，M6 Skill 契约见 [`m6-agent-skill.md`](./m6-agent-skill.md)，M7 验证与恢复证据见 [`m7-hardening-delivery.md`](./m7-hardening-delivery.md)。
+当前进度：M0 至 M8 已全部完成。M0–M7 完成内容维护第一阶段，M8 完成页面性能硬化。M1 首条纵向链路见 [`m1-vertical-slice.md`](./m1-vertical-slice.md)，M2 查询契约见 [`m2-readonly-cli.md`](./m2-readonly-cli.md)，M3 写入契约见 [`m3-controlled-writes.md`](./m3-controlled-writes.md)，M4 全量事实源与页面读模型见 [`m4-full-migration.md`](./m4-full-migration.md)，M5 发布校验与恢复语义见 [`m5-release-hardening.md`](./m5-release-hardening.md)，M6 Skill 契约见 [`m6-agent-skill.md`](./m6-agent-skill.md)，M7 验证与恢复证据见 [`m7-hardening-delivery.md`](./m7-hardening-delivery.md)，M8 性能证据见 [`m8-performance-hardening.md`](./m8-performance-hardening.md)。
 
 ## 当前前置条件
 
@@ -210,6 +210,24 @@ tests/
 - 本地 CLI、GitHub Actions、公开站和 Skill 使用同一份 Schema 与查询规则。
 - 从旧静态版本恢复有明确步骤且经过演练。
 
+## M8：页面性能硬化与可回归交付
+
+### 任务
+
+- 用真实 Chrome 冷启动记录首页和详情页的资源时序、FCP、LCP、CLS 与 Long Task，不以源码推测代替运行证据。
+- 找出首页 LCP 的真实元素及其依赖链，只优化有明确收益的阻塞资源。
+- 在不改变页面构图和实体纸张语言的前提下压缩石墨与纸张纹理，并提前加载首屏纸张纹理。
+- 为纹理体积、可解码性、尺寸、内容 SHA 与生产构建 preload/CSS 复用建立自动化契约。
+- 重新采集首页和详情页在 1440×900、1024×900、390×844 下的六张视觉基线。
+- 完成桌面、移动端、控制台和线上 Pages 回归。
+
+### 验收
+
+- 真实加载顺序和优化前后样本有可复查记录，首页 LCP 元素明确。
+- 两张 1600×1600 WebP 纹理总量较 M7 减少至少 70%，视觉基线经过人工确认。
+- 首页和详情页的生产 HTML preload 与 CSS 唯一复用同一带哈希纸张纹理，不产生重复请求。
+- 性能契约、全部既有测试、生产构建、发布包校验和 GitHub Pages 部署通过。
+
 ## 推荐执行顺序
 
 ```text
@@ -228,6 +246,8 @@ M5 CI 与发布
 M6 Skill
   ↓
 M7 硬化交付
+  ↓
+M8 性能硬化
 ```
 
 M1 是第一个必须尽快完成的里程碑。如果 M1 不能让一份 Markdown 无损驱动现有首页和详情页，后续 CLI、GitHub 写入和 Skill 都不应继续扩展。这里的 MCP Inspector 仅是当前资料最完整的样例条目，与是否建设 MCP 能力无关。
