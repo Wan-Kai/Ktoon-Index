@@ -5,12 +5,13 @@ summary: 'Shared semantic conventions for observing models, tools, and agent sys
 category: standards
 tags: []
 rating: NPC
-version: 1
-status: published
+version: 2
+status: recycled
 added_at: '2026-08-02T10:00:00.000Z'
-updated_at: '2026-08-02T10:00:00.000Z'
+updated_at: '2026-08-26T08:46:03.294Z'
 source:
   title: OpenTelemetry GenAI Conventions
   url: 'https://opentelemetry.io/docs/specs/semconv/gen-ai/'
 references: []
 ---
+
