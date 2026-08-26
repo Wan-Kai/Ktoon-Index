@@ -8,10 +8,10 @@ tags:
   - debugging
   - agent-tooling
 rating: 夯
-version: 1
-status: published
+version: 2
+status: recycled
 added_at: '2026-08-25T03:13:13.992Z'
-updated_at: '2026-08-25T03:13:13.992Z'
+updated_at: '2026-08-26T08:43:11.643Z'
 source:
   title: MCP Inspector
   url: 'https://github.com/modelcontextprotocol/inspector'
