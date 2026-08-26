@@ -11,6 +11,7 @@ import {
   readAuthoritativeEntries,
   SITE_URL,
 } from "../scripts/build-content.ts";
+import { ensurePublished } from "./content-fixtures.ts";
 
 type HeadData = {
   links: Array<Record<string, string>>;
@@ -88,7 +89,7 @@ describe("M9 公开站可发现性契约", () => {
     const shareImage = readFileSync(new URL("../public/share-image.jpg", import.meta.url));
     expect(jpegDimensions(shareImage)).toEqual({ width: 1200, height: 630 });
     expect(createHash("sha256").update(shareImage).digest("hex")).toBe(
-      "bbb7e4ec575870014c9da7196099c820bf280eff019e6d6488da4e68b7e8d591",
+      "8ab0bda5515045c367730c6b2400b4a384db45ed13dc933a8aefa51e4719cbec",
     );
   });
 
@@ -130,21 +131,37 @@ describe("M9 公开站可发现性契约", () => {
     );
   });
 
+  it("published 条目生成可发现的详情 URL 与更新时间", async () => {
+    const entries = await readAuthoritativeEntries();
+    const published = ensurePublished(entries[0]);
+    const generated = buildSitemap([published]);
+
+    expect(generated).toContain(
+      `<loc>${SITE_URL}detail.html?id=${encodeURIComponent(published.id)}</loc>`,
+    );
+    expect(generated).toContain(`<lastmod>${published.updatedAt.slice(0, 10)}</lastmod>`);
+    expect(generated.match(/<url>/gu)).toHaveLength(2);
+  });
+
   it("recycled 条目退出 URL 集合且不影响首页 lastmod", async () => {
     const entries = await readAuthoritativeEntries();
     const target = entries[0];
+    const published = ensurePublished(target);
     const recycled = transitionEntryStatus(
-      target,
-      { expected_version: target.version, expected_sha: "a".repeat(40) },
+      published,
+      { expected_version: published.version, expected_sha: "b".repeat(40) },
       "recycled",
       new Date("2099-12-31T00:00:00.000Z"),
     );
     const generated = buildSitemap(
       entries.map((entry) => (entry.id === target.id ? recycled : entry)),
     );
+    const remainingPublished = entries.filter(
+      (entry) => entry.status === "published" && entry.id !== target.id,
+    ).length;
 
     expect(generated).not.toContain(`detail.html?id=${encodeURIComponent(target.id)}`);
     expect(generated).not.toContain("2099-12-31");
-    expect(generated.match(/<url>/gu)).toHaveLength(entries.length);
+    expect(generated.match(/<url>/gu)).toHaveLength(remainingPublished + 1);
   });
 });

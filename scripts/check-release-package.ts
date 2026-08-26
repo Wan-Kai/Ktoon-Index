@@ -5,7 +5,7 @@ import { parse, type DefaultTreeAdapterMap } from "parse5";
 import postcss from "postcss";
 import valueParser from "postcss-value-parser";
 
-import { AppError } from "../src/content/index.ts";
+import { AppError, type Entry } from "../src/content/index.ts";
 import {
   buildRobots,
   buildSitemap,
@@ -385,15 +385,15 @@ async function checkLocalReference(
 }
 
 /**
- * 验证最终 dist 确实由当前 Markdown 重建，并且可独立作为 GitHub Pages 发布包运行。
+ * 用已校验的事实源快照执行完整发布包校验，仅供同模块生产包装器和隔离测试复用。
  *
- * Actions 在 Vite 构建后调用本函数：它重新投影事实源，与 dist 中的 index/detail JSON 和 sitemap 比对，校验 robots 的站点根地址，再检查完整 data 白名单、全部 JSON 禁键、静态资源真实路径和 symlink。任何发现都会聚合为 BUILD_FAILED，产物不得上传；修复事实源或构建配置并完整重建后恢复。这里不能降级为 warning，也不能只检查仓库根目录的 data/public 源文件。
+ * 调用方必须保证 Entries 已通过项目 Schema；隔离测试可注入合成快照覆盖空库与非空库，生产路径只能由 `verifyReleasePackage` 读取仓库 Markdown 后进入。静态引用、公开数据白名单、维护字段、sitemap 或 robots 任一检查失败均统一抛出 `BUILD_FAILED`，不得降级为警告，也不得用此核心绕过生产事实源读取。
  */
-export async function verifyReleasePackage(
-  outputDirectory = resolve(projectRoot, "dist"),
+async function verifyReleasePackageAgainstEntries(
+  outputDirectory: string,
+  authoritativeEntries: Entry[],
 ): Promise<{ files: number; entries: number; details: number; references: number }> {
   const problems: string[] = [];
-  const authoritativeEntries = await readAuthoritativeEntries();
   const expected = projectContent(authoritativeEntries);
   const expectedSitemap = buildSitemap(authoritativeEntries);
   const expectedIndex = { categories: expected.categories };
@@ -536,6 +536,21 @@ export async function verifyReleasePackage(
     references,
   };
 }
+
+/**
+ * 验证最终 dist 确实由当前 Markdown 重建，并且可独立作为 GitHub Pages 发布包运行。
+ *
+ * Actions 在 Vite 构建后调用本函数：它强制读取仓库事实源，与 dist 中的 index/detail JSON 和 sitemap 比对，校验 robots 的站点根地址，再检查完整 data 白名单、全部 JSON 禁键、静态资源真实路径和 symlink。任何发现都会聚合为 BUILD_FAILED，产物不得上传；修复事实源或构建配置并完整重建后恢复。生产入口不能接受外部事实源，也不能降级为 warning。
+ */
+export async function verifyReleasePackage(
+  outputDirectory = resolve(projectRoot, "dist"),
+): Promise<{ files: number; entries: number; details: number; references: number }> {
+  return verifyReleasePackageAgainstEntries(outputDirectory, await readAuthoritativeEntries());
+}
+
+export const releasePackageTestApi = Object.freeze({
+  verifyAgainstEntries: verifyReleasePackageAgainstEntries,
+});
 
 if (fileURLToPath(import.meta.url) === resolve(process.argv[1] ?? "")) {
   try {

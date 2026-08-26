@@ -10,16 +10,19 @@ import {
   projectContent,
   readAuthoritativeEntries,
 } from "../scripts/build-content.ts";
-import { verifyReleasePackage } from "../scripts/check-release-package.ts";
+import { releasePackageTestApi, verifyReleasePackage } from "../scripts/check-release-package.ts";
+import { ensurePublished } from "./content-fixtures.ts";
 
 const temporaryDirectories: string[] = [];
 
-async function createReleaseFixture(): Promise<string> {
+async function createReleaseFixture(
+  entries?: Awaited<ReturnType<typeof readAuthoritativeEntries>>,
+): Promise<string> {
   const directory = await mkdtemp(resolve(tmpdir(), "ktoon-release-"));
   temporaryDirectories.push(directory);
   await mkdir(resolve(directory, "data/entries"), { recursive: true });
-  const entries = await readAuthoritativeEntries();
-  const projected = projectContent(entries);
+  const resolvedEntries = entries ?? (await readAuthoritativeEntries());
+  const projected = projectContent(resolvedEntries);
   await writeFile(
     resolve(directory, "index.html"),
     '<!-- <base href="./ignored/"> --><script src="./app.js"></script><link href="./..asset.css" rel="stylesheet">',
@@ -29,7 +32,7 @@ async function createReleaseFixture(): Promise<string> {
   await writeFile(resolve(directory, "favicon.svg"), '<svg xmlns="http://www.w3.org/2000/svg"/>\n');
   await writeFile(resolve(directory, "share-image.jpg"), "fixture\n");
   await writeFile(resolve(directory, "robots.txt"), buildRobots());
-  await writeFile(resolve(directory, "sitemap.xml"), buildSitemap(entries));
+  await writeFile(resolve(directory, "sitemap.xml"), buildSitemap(resolvedEntries));
   await writeFile(resolve(directory, "..asset.css"), "body{}\n");
   await writeFile(resolve(directory, "imported.css"), "body{}\n");
   await writeFile(
@@ -58,10 +61,25 @@ afterEach(async () => {
 describe("M5 发布包校验", () => {
   it("接受从当前 Markdown 完整投影的独立静态包", async () => {
     const directory = await createReleaseFixture();
+    const entries = await readAuthoritativeEntries();
+    const publishedCount = entries.filter((entry) => entry.status === "published").length;
 
     await expect(verifyReleasePackage(directory)).resolves.toMatchObject({
-      entries: 20,
-      details: 20,
+      entries: publishedCount,
+      details: publishedCount,
+    });
+  });
+
+  it("接受至少一个 published 条目的非空发布包", async () => {
+    const entries = await readAuthoritativeEntries();
+    const published = ensurePublished(entries[0]);
+    const directory = await createReleaseFixture([published]);
+
+    await expect(
+      releasePackageTestApi.verifyAgainstEntries(directory, [published]),
+    ).resolves.toMatchObject({
+      entries: 1,
+      details: 1,
     });
   });
 
@@ -71,9 +89,9 @@ describe("M5 发布包校验", () => {
       resolve(directory, "index.html"),
       '<link href="./missing.css" rel="stylesheet">',
     );
-    const detailPath = resolve(directory, "data/entries/mcp-inspector.json");
-    const detail = JSON.parse(await readFile(detailPath, "utf8"));
-    await writeFile(detailPath, JSON.stringify({ ...detail, status: "published" }));
+    const indexPath = resolve(directory, "data/index.json");
+    const index = JSON.parse(await readFile(indexPath, "utf8"));
+    await writeFile(indexPath, JSON.stringify({ ...index, status: "published" }));
 
     await expect(verifyReleasePackage(directory)).rejects.toMatchObject({
       code: "BUILD_FAILED",
