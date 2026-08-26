@@ -77,7 +77,7 @@ function createMetadataHarness() {
       },
     },
     querySelector: query,
-    title: "AI Index Entry",
+    title: "Ktoon’s Index Entry",
   };
   const context = { document } as Record<string, unknown>;
   runInNewContext(
@@ -143,7 +143,7 @@ describe("详情页运行时元信息", () => {
     expect(ogUrl).toHaveLength(1);
     expect(canonical[0].getAttribute("href")).toBe(`${SITE_URL}detail.html?id=mcp-inspector`);
     expect(ogUrl[0].getAttribute("content")).toBe(canonical[0].getAttribute("href"));
-    expect(harness.document.title).toBe("MCP Inspector · AI Index");
+    expect(harness.document.title).toBe("MCP Inspector · Ktoon’s Index");
   });
 
   it("只有首页与详情 JSON 都成功后才更新元信息并进入渲染", async () => {

@@ -173,12 +173,20 @@ input {
 }
 
 .brand strong {
-  font-family: "League Gothic", sans-serif;
-  font-size: clamp(3rem, 4.8vw, 3.9rem);
+  font-family: "Iowan Old Style", Baskerville, "Palatino Linotype", "Book Antiqua", Georgia,
+    serif;
+  font-size: clamp(2.5rem, 3.5vw, 3.35rem);
   font-weight: 400;
-  line-height: 0.82;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
+  line-height: 0.88;
+  letter-spacing: -0.055em;
+  white-space: nowrap;
+}
+
+.brand__possessive {
+  color: #9a9d98;
+  font-size: 0.92em;
+  font-style: italic;
+  letter-spacing: -0.07em;
 }
 
 .brand__copy > span {
@@ -1041,7 +1049,7 @@ html[lang="zh-CN"] .sleeve h2 {
   }
 
   .brand strong {
-    font-size: 2.15rem;
+    font-size: 1.75rem;
   }
 
   .brand__copy > span {
@@ -1168,7 +1176,7 @@ html[lang="zh-CN"] .sleeve h2 {
   }
 
   .brand strong {
-    font-size: 1.9rem;
+    font-size: 1.5rem;
   }
 
   .language-switch {

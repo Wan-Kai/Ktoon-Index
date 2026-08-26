@@ -52,6 +52,17 @@ function jpegDimensions(bytes: Buffer): { width: number; height: number } {
 }
 
 describe("M9 公开站可发现性契约", () => {
+  it("公开品牌统一使用排版撇号", () => {
+    const publicSources = ["index.html", "detail.html", "app.js"].map((file) =>
+      readFileSync(new URL(`../${file}`, import.meta.url), "utf8"),
+    );
+
+    for (const source of publicSources) {
+      expect(source).toContain("Ktoon’s Index");
+      expect(source).not.toContain("Ktoon's");
+    }
+  });
+
   it("首页声明唯一绝对 canonical、分享摘要与 favicon", () => {
     const head = readHeadData("index.html");
     expect(head.links.filter((link) => link.rel === "canonical")).toEqual([
@@ -77,7 +88,7 @@ describe("M9 公开站可发现性契约", () => {
     const shareImage = readFileSync(new URL("../public/share-image.jpg", import.meta.url));
     expect(jpegDimensions(shareImage)).toEqual({ width: 1200, height: 630 });
     expect(createHash("sha256").update(shareImage).digest("hex")).toBe(
-      "638c6f6c71584a6d07ff98c45a468c52b08dcc20f8ca9b9457e7f8470bff7c65",
+      "bbb7e4ec575870014c9da7196099c820bf280eff019e6d6488da4e68b7e8d591",
     );
   });
 

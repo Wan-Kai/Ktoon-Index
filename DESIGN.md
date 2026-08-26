@@ -1,6 +1,6 @@
 ---
-name: AI Index
-description: Crate Index / Continuous Sleeves — a tactile, public index for one person's AI knowledge.
+name: "Ktoon’s Index"
+description: Ktoon’s tactile, public index for personal AI knowledge — Crate Index / Continuous Sleeves.
 colors:
   graphite: "#111313"
   crate: "#161918"
@@ -12,6 +12,12 @@ colors:
   text-on-paper-muted: "#3f4643"
   paper-line: "rgba(23, 25, 24, 0.18)"
 typography:
+  brand:
+    fontFamily: '"Iowan Old Style", Baskerville, "Palatino Linotype", "Book Antiqua", Georgia, serif'
+    fontSize: "clamp(2.5rem, 3.5vw, 3.35rem)"
+    fontWeight: 400
+    lineHeight: 0.88
+    letterSpacing: "-0.055em"
   display:
     fontFamily: '"League Gothic", "Arial Narrow", sans-serif'
     fontSize: "clamp(3.15rem, 5.8vw, 5rem)"
@@ -57,13 +63,13 @@ typography:
     fontWeight: 500
     lineHeight: 1.2
   detailHeadline:
-    fontFamily: 'Georgia, "Songti SC", "STSong", "Noto Serif CJK SC", "Source Han Serif SC", SimSun, serif'
+    fontFamily: '"Iowan Old Style", "Times New Roman", "Songti SC", STSong, SimSun, serif'
     fontSize: "clamp(3.8rem, 6.6vw, 5.35rem)"
     fontWeight: 700
     lineHeight: 0.9
     letterSpacing: "-0.035em"
   detailReading:
-    fontFamily: 'Georgia, "Songti SC", "STSong", "Noto Serif CJK SC", "Source Han Serif SC", SimSun, serif'
+    fontFamily: '"Iowan Old Style", "Times New Roman", "Songti SC", STSong, SimSun, serif'
     fontSize: "0.98rem"
     fontWeight: 400
     lineHeight: 1.78
@@ -105,7 +111,7 @@ components:
     padding: "10px 12px"
 ---
 
-# Design System: AI Index
+# Design System: Ktoon’s Index
 
 ## Overview
 
@@ -118,7 +124,7 @@ The system feels tactile but not nostalgic. Two self-hosted, seamless 1600×1600
 **Key Characteristics:**
 
 - One graphite frame, one continuous single-column paper stack, five fixed categories.
-- Condensed display type for identity; neutral sans for reading; mono only for real catalog metadata.
+- Editorial serif for the personal wordmark, condensed display for category identity, neutral sans for reading, and mono only for real catalog metadata.
 - Acid green is a scarce state signal, not a decorative field.
 - Physicality comes from material, overlapping edges, contact shadow, and restrained vertical feedback.
 
@@ -146,26 +152,33 @@ Near-black graphite and cold paper carry almost the entire surface; metal and mu
 
 ## Typography
 
-**Display Font:** League Gothic, with narrow sans-serif fallback  
-**Chinese Display Font:** minimal `Noto Sans CJK SC Index` 700 subset, with PingFang SC fallback  
-**Body/Sans Font:** IBM Plex Sans Condensed 400 / 500, with narrow sans-serif fallback  
-**Detail Reading Font:** Georgia, with Songti SC / STSong and compatible serif fallbacks  
+**Brand Font:** Iowan Old Style, with Baskerville / Palatino / Georgia editorial serif fallbacks
+
+**Display Font:** League Gothic, with narrow sans-serif fallback
+
+**Chinese Display Font:** minimal `Noto Sans CJK SC Index` 700 subset, with PingFang SC fallback
+
+**Body/Sans Font:** IBM Plex Sans Condensed 400 / 500, with narrow sans-serif fallback
+
+**Detail Reading Font:** Iowan Old Style, with Times New Roman / Songti SC / STSong / SimSun serif fallbacks
+
 **Label/Mono Font:** IBM Plex Mono, with monospace fallback
 
-The core homepage families are self-hosted under `assets/fonts/`; display must not depend on remote font loading. The masthead is a pure-text `AI INDEX` wordmark in League Gothic; no separate logo mark competes with the newspaper-style nameplate. League Gothic also serves English category names. Chinese category labels use a tiny, category-only Noto Sans CJK SC subset at native proportions. IBM Plex Sans Condensed carries homepage titles, descriptions, search, brand descriptor, and footer copy. IBM Plex Mono is reserved for counts and catalog metadata.
+The core content families are self-hosted under `assets/fonts/`; typography must not depend on remote font loading. The masthead is a pure-text `Ktoon’s Index` wordmark in the approved editorial system stack: Iowan Old Style first, then Baskerville, Palatino-compatible faces, and Georgia. This deliberate system stack aligns the identity with the printed dossier while retaining robust local fallbacks. The possessive `’s` uses the same family in muted italic, never a second display face. League Gothic remains responsible for English category names and compact index headings. Chinese category labels use a tiny, category-only Noto Sans CJK SC subset at native proportions. IBM Plex Sans Condensed carries homepage titles, descriptions, search, brand descriptor, and footer copy. IBM Plex Mono is reserved for counts and catalog metadata.
 
-The detail dossier introduces a controlled editorial serif layer without changing the homepage system. Georgia with Songti-compatible fallbacks carries the record headline, editorial section headings, personal evaluation, and supporting explanatory copy. IBM Plex Sans Condensed carries the deck, return/primary actions, and reference titles. IBM Plex Mono carries folio, dates, IDs, labels, counts, indexes, and hosts. The minimal Noto Sans CJK subset appears only in the acid rating grade character on this surface.
+The detail dossier extends the masthead's editorial voice into the printed record. Iowan Old Style with Times New Roman and Songti-compatible fallbacks carries the record headline, editorial section headings, personal evaluation, and supporting explanatory copy. IBM Plex Sans Condensed carries the deck, return/primary actions, and reference titles. IBM Plex Mono carries folio, dates, IDs, labels, counts, indexes, and hosts. The minimal Noto Sans CJK subset appears only in the acid rating grade character on this surface.
 
 ### Hierarchy
 
 - **Display:** Uppercase category names only; the fluid desktop scale is normative, with mobile overrides preserving prominence without clipping.
-- **Headline:** Brand wordmark and search-results heading in League Gothic.
+- **Brand:** `Ktoon’s Index` in the approved editorial serif stack; the gray italic possessive is a subordinate inflection inside one family.
+- **Headline:** Compact English index headings in League Gothic.
 - **Title:** Entry titles at medium weight, allowed up to two lines on desktop without becoming a continuous black band.
 - **Body:** Entry descriptions and result summaries; desktop sleeve descriptions stay on one line, then wrap on narrow layouts.
 - **Label:** Counts, codes, legends, footer metadata, and language controls. Use tabular-looking mono only where the content behaves like data.
-- **Detail Headline / Reading:** Georgia and Songti-compatible serif faces provide the newspaper voice for the dossier headline and authored judgment; sans remains responsible for orientation and action.
+- **Detail Headline / Reading:** Iowan Old Style with Times New Roman and Songti-compatible serif fallbacks provides the newspaper voice for the dossier headline and authored judgment; sans remains responsible for orientation and action.
 
-**The Role Discipline Rule.** Condensed display names the archive, editorial serif carries the detail record, condensed sans orients and acts, and mono records metadata; do not swap their roles for decoration.
+**The Role Discipline Rule.** Editorial serif names the personal archive and carries the printed detail record, condensed display labels categories, condensed sans orients and acts, and mono records metadata; do not swap their roles for decoration.
 
 ### Type Scale
 
@@ -175,6 +188,7 @@ The detail dossier introduces a controlled editorial serif layer without changin
 - **Mobile titles — 15px:** entry titles at the narrowest breakpoint.
 - **Titles — 15px / 500:** desktop and mobile entry titles.
 - **Counts — 18px desktop / 14px mobile:** category totals paired with display headings.
+- **Brand — 40-53.6px desktop / 28px tablet / 24px mobile:** one unbroken line; the search slot and language switch retain independent width.
 - **Display:** English category headings remain fluid up to 80px; Chinese category headings use 64px desktop and 52px mobile without geometric scaling.
 
 ## Layout
@@ -183,7 +197,7 @@ The document is at least one dynamic viewport tall. The masthead stays at the to
 
 The homepage is a single column, capped at 1560px for the crate and 1480px for masthead/footer content. Above 820px each sleeve uses an approximately 30.5/69.5 split: category identity and count on the left, three aligned track rows on the right. Desktop sleeves target a compact 134px minimum height: three 40px track links sit inside 6px vertical list padding, while the catalog code and “view all” action share one compact metadata row beneath the title. At 820px that row returns to a vertical flow to preserve narrow-screen reading order. Adjacent sleeves overlap by 7px to read as a continuous physical stack. Every sleeve shares the same left and right top-edge datum, so the first and final sleeve begin at exactly the same horizontal coordinates. The micro-taper remains local to each paper surface and never accumulates through the stack.
 
-At 1080px the identity rail compresses to 250px. At 820px the masthead becomes two rows, each sleeve becomes one column, and identity moves above its tracks while the paper stack remains continuously edge-to-edge with no exposed graphite gap. Mobile sleeves keep the same shared outer datum while the local taper reduces to 2px per side at rest and 1px per side when lifted. At 520px secondary brand copy and the catalog code disappear; titles and descriptions wrap rather than truncate. The minimum supported viewport is 320px.
+At 1080px the identity rail compresses to 250px. At 820px the masthead uses a 28px single-line brand wordmark, each sleeve becomes one column, and identity moves above its tracks while the paper stack remains continuously edge-to-edge with no exposed graphite gap. Mobile sleeves keep the same shared outer datum while the local taper reduces to 2px per side at rest and 1px per side when lifted. At 520px the brand wordmark becomes 24px, secondary brand copy and the catalog code disappear, and titles and descriptions wrap rather than truncate. The minimum supported viewport is 320px.
 
 Keep the first-release category sequence fixed: Toolkit, Products, Articles, Standards, Ideas. Every sleeve shows its total count and exactly the highest-rated three eligible entries; unrated entries never fill a homepage Top 3 slot.
 
@@ -265,5 +279,5 @@ The form language is mostly rectangular: 2px rating stamps, 3px controls and ove
 
 - **Don't** add a hero, marketing claims, recommendations, popularity modules, bento/card grids, or growth-oriented controls.
 - **Don't** literalize the metaphor with records, stylus hardware, album art, cover walls, perspective scenes, or rasterized interface copy.
-- **Don't** use gradients, glass, neon glow, serif “digital garden” styling, generic glyph icons, or system display faces.
+- **Don't** use gradients, glass, neon glow, serif “digital garden” styling, generic glyph icons, remote display fonts, or system faces outside the approved brand/detail serif stacks.
 - **Don't** translate user-authored entry content when the interface language changes, broaden search beyond title/description, or treat demo links and counts as production data.

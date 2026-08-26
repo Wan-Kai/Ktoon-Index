@@ -6,9 +6,9 @@ const translations = {
   zh: {
     skipLink: "跳到主要内容",
     headerAria: "站点页头",
-    homeAria: "AI Index 首页",
-    indexAria: "AI Index 分类",
-    searchLabel: "搜索 AI Index",
+    homeAria: "Ktoon’s Index 首页",
+    indexAria: "Ktoon’s Index 分类",
+    searchLabel: "搜索 Ktoon’s Index",
     searchPlaceholder: "搜索标题或描述",
     clearSearch: "清除搜索",
     results: "搜索结果",
@@ -50,9 +50,9 @@ const translations = {
   en: {
     skipLink: "Skip to main content",
     headerAria: "Site header",
-    homeAria: "AI Index home",
-    indexAria: "AI Index categories",
-    searchLabel: "Search AI Index",
+    homeAria: "Ktoon’s Index home",
+    indexAria: "Ktoon’s Index categories",
+    searchLabel: "Search Ktoon’s Index",
     searchPlaceholder: "Search titles or descriptions",
     clearSearch: "Clear search",
     results: "Search results",
@@ -261,7 +261,7 @@ function setMetaContent(selector, content, attributes) {
  * 什么不能改：detail.html 源码不能预置无 ID 的 canonical，也不能使用当前 location 的任意 query，以免追踪参数和未知参数进入索引。
  */
 function updateDetailMetadata(entry) {
-  const title = `${entry.title} · AI Index`;
+  const title = `${entry.title} · Ktoon’s Index`;
   const canonicalUrl = `${PRODUCTION_SITE_URL}detail.html?id=${encodeURIComponent(entry.id)}`;
   document.title = title;
   setMetaContent('meta[name="description"]', entry.summary);
@@ -770,7 +770,7 @@ async function initializeApplication() {
     if (currentDetailEntry) updateDetailMetadata(currentDetailEntry);
     applyLanguage();
   } catch (error) {
-    console.error("AI Index data initialization failed", error);
+    console.error("Ktoon’s Index data initialization failed", error);
     if (document.body.classList.contains("detail-body")) {
       const title = document.querySelector("#entry-title");
       if (title) title.textContent = state.language === "zh" ? "条目加载失败" : "Entry unavailable";
