@@ -295,7 +295,7 @@ input {
 }
 
 .language-switch:hover {
-  border-color: rgba(231, 229, 223, 0.3);
+  border-color: transparent;
 }
 
 .language-switch__muted {

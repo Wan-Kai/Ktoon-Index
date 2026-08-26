@@ -77,7 +77,7 @@ describe("M9 公开站可发现性契约", () => {
     const shareImage = readFileSync(new URL("../public/share-image.jpg", import.meta.url));
     expect(jpegDimensions(shareImage)).toEqual({ width: 1200, height: 630 });
     expect(createHash("sha256").update(shareImage).digest("hex")).toBe(
-      "5e8ac4ea48b35785262fd49c09675e95f24880af50c89ae2fd15e209109081c7",
+      "638c6f6c71584a6d07ff98c45a468c52b08dcc20f8ca9b9457e7f8470bff7c65",
     );
   });
 

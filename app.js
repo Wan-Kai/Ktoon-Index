@@ -682,8 +682,8 @@ function applyLanguage() {
   languageSwitch.setAttribute("aria-label", copy.languageAria);
   languageSwitch.innerHTML =
     state.language === "zh"
-      ? '<span class="language-switch__muted">中</span><span aria-hidden="true">/</span><span class="language-switch__active">EN</span>'
-      : '<span class="language-switch__active">中</span><span aria-hidden="true">/</span><span class="language-switch__muted">EN</span>';
+      ? '<span class="language-switch__active">中</span><span aria-hidden="true">/</span><span class="language-switch__muted">EN</span>'
+      : '<span class="language-switch__muted">中</span><span aria-hidden="true">/</span><span class="language-switch__active">EN</span>';
 
   renderCategoryControls();
   renderCategories();
