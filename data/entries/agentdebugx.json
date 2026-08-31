@@ -1,0 +1,17 @@
+{
+  "id": "agentdebugx",
+  "title": "AgentDebugX",
+  "summary": "面向 Agent 的闭环调试框架。",
+  "category": "toolkit",
+  "categoryLabel": "Toolkit",
+  "categoryLabelZh": "工具箱",
+  "archiveCode": "AI-IX / TOOLKIT / 007",
+  "folioNumber": "007",
+  "tags": [],
+  "rating": "NPC",
+  "addedAt": "2026-08-31T12:54:20.799Z",
+  "updatedAt": "2026-08-31T12:54:20.799Z",
+  "personalTakeHtml": "",
+  "source": null,
+  "references": []
+}

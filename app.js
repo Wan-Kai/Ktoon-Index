@@ -119,6 +119,10 @@ const categorySort = document.querySelector("#category-sort");
 const categoryTag = document.querySelector("#category-tag");
 const categoryTime = document.querySelector("#category-time");
 const ratingLegend = document.querySelector(".rating-legend");
+let openCategoryPicker = null;
+const categoryPickers = [categorySort, categoryTag, categoryTime]
+  .filter(Boolean)
+  .map(createCategoryPicker);
 
 /**
  * 将 Agent 可维护的文本转换为只表达文字的 HTML。
@@ -470,6 +474,7 @@ function renderCategoryControls() {
   if (!categoryControls || !categorySort || !categoryTag || !categoryTime || !ratingLegend) return;
 
   const active = Boolean(state.selectedCategory && categories[0]);
+  document.body.classList.toggle("category-view", active);
   categoryControls.hidden = !active;
   ratingLegend.hidden = active;
   if (!active) return;
@@ -499,6 +504,153 @@ function renderCategoryControls() {
   categoryTag.value = state.categoryTag;
   categoryTag.disabled = tags.length === 0;
   categoryTime.value = state.categoryTime;
+  categoryPickers.forEach((picker) => picker.sync());
+}
+
+/**
+ * 将原生 select 增强为页面内单选菜单，避免浏览器原生弹窗无法统一样式。
+ * select 仍是唯一值来源；只有确认选项才发 change，方向键预览、Escape 和 Tab 都不提交。
+ * 语言或标签变化后 sync 重建文本并关闭菜单，保持隐藏 select、可见值与 ARIA 状态一致。
+ */
+function createCategoryPicker(select) {
+  const wrapper = document.createElement("div");
+  wrapper.className = "category-picker";
+  wrapper.dataset.control = select.id;
+  const trigger = document.createElement("button");
+  trigger.type = "button";
+  trigger.id = `${select.id}-trigger`;
+  trigger.className = "category-picker__trigger";
+  trigger.setAttribute("role", "combobox");
+  trigger.setAttribute("aria-haspopup", "listbox");
+  trigger.setAttribute("aria-expanded", "false");
+  const label = document.createElement("span");
+  label.className = "category-picker__value";
+  trigger.append(label);
+  const panel = document.createElement("div");
+  panel.id = `${select.id}-listbox`;
+  panel.className = "category-picker__menu";
+  panel.setAttribute("role", "listbox");
+  panel.hidden = true;
+  trigger.setAttribute("aria-controls", panel.id);
+  select.before(wrapper);
+  wrapper.append(select, trigger, panel);
+  select.hidden = true;
+  let activeIndex = 0;
+  let prefix = "";
+  let typedAt = 0;
+
+  function close() {
+    panel.hidden = true;
+    trigger.setAttribute("aria-expanded", "false");
+    trigger.removeAttribute("aria-activedescendant");
+    wrapper.classList.remove("is-open");
+    prefix = "";
+    if (openCategoryPicker === picker) openCategoryPicker = null;
+  }
+
+  function highlight(index) {
+    activeIndex = Math.max(0, Math.min(index, panel.children.length - 1));
+    Array.from(panel.children).forEach((option, optionIndex) => {
+      option.classList.toggle("is-active", optionIndex === activeIndex);
+    });
+    const active = panel.children[activeIndex];
+    if (!active) return;
+    trigger.setAttribute("aria-activedescendant", active.id);
+    if (active.offsetTop < panel.scrollTop) panel.scrollTop = active.offsetTop;
+    if (active.offsetTop + active.offsetHeight > panel.scrollTop + panel.clientHeight) {
+      panel.scrollTop = active.offsetTop + active.offsetHeight - panel.clientHeight;
+    }
+  }
+
+  function open(index = select.selectedIndex) {
+    if (trigger.disabled) return;
+    if (openCategoryPicker && openCategoryPicker !== picker) openCategoryPicker.close();
+    openCategoryPicker = picker;
+    const bounds = trigger.getBoundingClientRect();
+    const below = window.innerHeight - bounds.bottom;
+    const upward = below < 180 && bounds.top > below;
+    wrapper.classList.toggle("opens-up", upward);
+    panel.style.maxHeight = `${Math.max(88, Math.min(264, (upward ? bounds.top : below) - 16))}px`;
+    panel.hidden = false;
+    wrapper.classList.add("is-open");
+    trigger.setAttribute("aria-expanded", "true");
+    highlight(index);
+  }
+
+  function sync() {
+    close();
+    trigger.disabled = select.disabled;
+    const selected = select.options[select.selectedIndex];
+    label.textContent = selected?.textContent ?? "";
+    const name = select.getAttribute("aria-label") ?? "";
+    trigger.setAttribute("aria-label", `${name}：${label.textContent}`);
+    panel.setAttribute("aria-label", name);
+    panel.replaceChildren();
+    Array.from(select.options).forEach((option, index) => {
+      const item = document.createElement("div");
+      item.id = `${select.id}-option-${index}`;
+      item.className = "category-picker__option";
+      item.setAttribute("role", "option");
+      item.setAttribute("aria-selected", String(option.selected));
+      item.dataset.value = option.value;
+      item.textContent = option.textContent;
+      item.addEventListener("click", () => commit(index));
+      panel.append(item);
+    });
+  }
+
+  function commit(index) {
+    const option = select.options[index];
+    if (!option || select.disabled) return;
+    const changed = select.value !== option.value;
+    select.value = option.value;
+    sync();
+    if (changed) select.dispatchEvent(new Event("change", { bubbles: true }));
+    trigger.focus({ preventScroll: true });
+  }
+
+  trigger.addEventListener("click", () => panel.hidden ? open() : close());
+  trigger.addEventListener("keydown", (event) => {
+    if (trigger.disabled) return;
+    const key = event.key;
+    if (key === "Tab" || key === "Escape") {
+      if (key === "Escape" && !panel.hidden) event.preventDefault();
+      close();
+      return;
+    }
+    if (["ArrowDown", "ArrowUp", "Home", "End", "Enter", " "].includes(key)) {
+      event.preventDefault();
+      if (key === "Enter" || key === " ") {
+        if (panel.hidden) open();
+        else commit(activeIndex);
+      } else if (key === "Home" || key === "End") {
+        if (panel.hidden) open();
+        highlight(key === "Home" ? 0 : select.options.length - 1);
+      } else if (panel.hidden) open();
+      else highlight(activeIndex + (key === "ArrowDown" ? 1 : -1));
+    } else if (key.length === 1 && !event.metaKey && !event.ctrlKey && !event.altKey) {
+      event.preventDefault();
+      if (panel.hidden) open();
+      const now = Date.now();
+      prefix = (now - typedAt < 650 ? prefix : "") + key.toLocaleLowerCase();
+      typedAt = now;
+      const index = Array.from(select.options).findIndex((option) =>
+        option.textContent.trim().toLocaleLowerCase().startsWith(prefix),
+      );
+      if (index >= 0) highlight(index);
+    }
+  });
+  panel.addEventListener("pointerdown", (event) => event.preventDefault());
+  wrapper.addEventListener("focusout", (event) => {
+    if (!wrapper.contains(event.relatedTarget)) close();
+  });
+  document.addEventListener("pointerdown", (event) => {
+    if (!wrapper.contains(event.target)) close();
+  });
+  window.addEventListener("resize", close);
+  select.addEventListener("change", sync);
+  const picker = { sync, close };
+  return picker;
 }
 
 /**

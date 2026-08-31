@@ -2,11 +2,15 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://wan-kai.github.io/Ktoon-Index/</loc>
-    <lastmod>2026-08-26</lastmod>
+    <lastmod>2026-08-31</lastmod>
   </url>
   <url>
     <loc>https://wan-kai.github.io/Ktoon-Index/detail.html?id=ag-ui</loc>
     <lastmod>2026-08-26</lastmod>
+  </url>
+  <url>
+    <loc>https://wan-kai.github.io/Ktoon-Index/detail.html?id=agentdebugx</loc>
+    <lastmod>2026-08-31</lastmod>
   </url>
   <url>
     <loc>https://wan-kai.github.io/Ktoon-Index/detail.html?id=copilotkit</loc>
@@ -17,6 +21,14 @@
     <lastmod>2026-08-26</lastmod>
   </url>
   <url>
+    <loc>https://wan-kai.github.io/Ktoon-Index/detail.html?id=emil-kowalski-skills</loc>
+    <lastmod>2026-08-31</lastmod>
+  </url>
+  <url>
+    <loc>https://wan-kai.github.io/Ktoon-Index/detail.html?id=gitvizz</loc>
+    <lastmod>2026-08-31</lastmod>
+  </url>
+  <url>
     <loc>https://wan-kai.github.io/Ktoon-Index/detail.html?id=grill-me</loc>
     <lastmod>2026-08-26</lastmod>
   </url>
@@ -25,11 +37,35 @@
     <lastmod>2026-08-26</lastmod>
   </url>
   <url>
+    <loc>https://wan-kai.github.io/Ktoon-Index/detail.html?id=humalike</loc>
+    <lastmod>2026-08-31</lastmod>
+  </url>
+  <url>
     <loc>https://wan-kai.github.io/Ktoon-Index/detail.html?id=impeccable</loc>
     <lastmod>2026-08-26</lastmod>
   </url>
   <url>
     <loc>https://wan-kai.github.io/Ktoon-Index/detail.html?id=mcp-spec</loc>
     <lastmod>2026-08-26</lastmod>
+  </url>
+  <url>
+    <loc>https://wan-kai.github.io/Ktoon-Index/detail.html?id=mindwalk</loc>
+    <lastmod>2026-08-31</lastmod>
+  </url>
+  <url>
+    <loc>https://wan-kai.github.io/Ktoon-Index/detail.html?id=multica</loc>
+    <lastmod>2026-08-31</lastmod>
+  </url>
+  <url>
+    <loc>https://wan-kai.github.io/Ktoon-Index/detail.html?id=openviking</loc>
+    <lastmod>2026-08-31</lastmod>
+  </url>
+  <url>
+    <loc>https://wan-kai.github.io/Ktoon-Index/detail.html?id=orb</loc>
+    <lastmod>2026-08-31</lastmod>
+  </url>
+  <url>
+    <loc>https://wan-kai.github.io/Ktoon-Index/detail.html?id=vgpu</loc>
+    <lastmod>2026-08-31</lastmod>
   </url>
 </urlset>

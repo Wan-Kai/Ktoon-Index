@@ -6,6 +6,16 @@
       "labelZh": "工具箱",
       "entries": [
         {
+          "id": "vgpu",
+          "rating": "夯",
+          "addedAt": "2026-08-31T12:54:26.006Z",
+          "updatedAt": "2026-08-31T12:54:26.006Z",
+          "tags": [],
+          "title": "vgpu",
+          "description": "用于 WebGPU 与 shader 跨端渲染的图形库。",
+          "url": "./detail.html?id=vgpu"
+        },
+        {
           "id": "grill-with-docs",
           "rating": "夯",
           "addedAt": "2026-08-26T09:47:14.370Z",
@@ -36,6 +46,36 @@
           "url": "./detail.html?id=impeccable"
         },
         {
+          "id": "orb",
+          "rating": "人上人",
+          "addedAt": "2026-08-31T12:55:53.480Z",
+          "updatedAt": "2026-08-31T12:55:53.480Z",
+          "tags": [],
+          "title": "Orb",
+          "description": "用于品牌与 Agent 界面的可控液态球视觉工具。",
+          "url": "./detail.html?id=orb"
+        },
+        {
+          "id": "emil-kowalski-skills",
+          "rating": "人上人",
+          "addedAt": "2026-08-31T12:54:14.928Z",
+          "updatedAt": "2026-08-31T12:54:14.928Z",
+          "tags": [],
+          "title": "Emil Kowalski Skills",
+          "description": "用于动效设计与界面交互打磨的设计 Skills。",
+          "url": "./detail.html?id=emil-kowalski-skills"
+        },
+        {
+          "id": "agentdebugx",
+          "rating": "NPC",
+          "addedAt": "2026-08-31T12:54:20.799Z",
+          "updatedAt": "2026-08-31T12:54:20.799Z",
+          "tags": [],
+          "title": "AgentDebugX",
+          "description": "面向 Agent 的闭环调试框架。",
+          "url": "./detail.html?id=agentdebugx"
+        },
+        {
           "id": "design-taste-frontend",
           "rating": "NPC",
           "addedAt": "2026-08-26T09:47:02.420Z",
@@ -53,6 +93,36 @@
       "labelZh": "产品",
       "entries": [
         {
+          "id": "humalike",
+          "rating": "夯",
+          "addedAt": "2026-08-31T12:56:50.985Z",
+          "updatedAt": "2026-08-31T12:56:50.985Z",
+          "tags": [],
+          "title": "Humalike",
+          "description": "面向群聊的 Agent 社交行为中间件，关注发言时机、群聊融入与过期回复处理。",
+          "url": "./detail.html?id=humalike"
+        },
+        {
+          "id": "multica",
+          "rating": "夯",
+          "addedAt": "2026-08-31T12:56:46.121Z",
+          "updatedAt": "2026-08-31T12:56:46.121Z",
+          "tags": [],
+          "title": "Multica",
+          "description": "人与 Agent 共用的任务协作平台，围绕 Issue、评论、成员身份和权限组织协作。",
+          "url": "./detail.html?id=multica"
+        },
+        {
+          "id": "openviking",
+          "rating": "夯",
+          "addedAt": "2026-08-31T12:55:59.467Z",
+          "updatedAt": "2026-08-31T12:55:59.467Z",
+          "tags": [],
+          "title": "OpenViking",
+          "description": "面向 Agent 的上下文数据库，用于组织和接入记忆与上下文。",
+          "url": "./detail.html?id=openviking"
+        },
+        {
           "id": "copilotkit",
           "rating": "夯",
           "addedAt": "2026-08-26T09:47:18.960Z",
@@ -61,6 +131,26 @@
           "title": "CopilotKit",
           "description": "用于在真实应用中连接 Agent 与用户界面的前端栈，支持生成式 UI、共享状态和人在回路。",
           "url": "./detail.html?id=copilotkit"
+        },
+        {
+          "id": "mindwalk",
+          "rating": "人上人",
+          "addedAt": "2026-08-31T12:56:38.870Z",
+          "updatedAt": "2026-08-31T12:56:38.870Z",
+          "tags": [],
+          "title": "Mindwalk",
+          "description": "通过 3D 代码地图回放 Agent 活动足迹的代码可视化工具。",
+          "url": "./detail.html?id=mindwalk"
+        },
+        {
+          "id": "gitvizz",
+          "rating": "人上人",
+          "addedAt": "2026-08-31T12:56:04.417Z",
+          "updatedAt": "2026-08-31T12:56:04.417Z",
+          "tags": [],
+          "title": "GitVizz",
+          "description": "结合代码依赖图与 AI 对话的代码可视化工具。",
+          "url": "./detail.html?id=gitvizz"
         }
       ]
     },
