@@ -28,6 +28,8 @@ Agent 使用 `$ai-index`，按 search/get → 单条 mutation 的顺序执行。
 ./skills/ai-index/scripts/run-ai-index.sh tag list --format table
 ```
 
+把调研任务交给其他 Agent 并要求其同步发布发现时，使用 Skill 的[调研发布协议](../skills/ai-index/references/research-publishing.md)。该协议定义收录门槛、分类映射、查重与逐条写入流程；没有明确的维护者判断时，Agent 会保留未评分状态，而不是从调研结论推断“夯 / 人上人 / NPC”。
+
 写入 JSON、并发护栏和 request ID 规则见 [M3 受控写入](./m3-controlled-writes.md)；Agent 的精确输入模板位于 [`skills/ai-index/references/write-contracts.md`](../skills/ai-index/references/write-contracts.md)。
 
 ## 写入完成标准

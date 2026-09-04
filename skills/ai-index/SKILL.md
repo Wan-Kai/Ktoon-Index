@@ -1,6 +1,6 @@
 ---
 name: ai-index
-description: Query and maintain Ktoon's personal AI Index through its controlled project CLI. Use when the user asks to 查询、搜索、查看、新增、修改、评分、加标签、加链接、回收或恢复 AI 收藏内容, including 工具箱、产品、文章、标准与点子.
+description: Query and maintain Ktoon's personal AI Index through its controlled project CLI. Use when the user asks to 查询、搜索、查看、新增、修改、评分、加标签、加链接、回收或恢复 AI 收藏内容, or asks an Agent to publish products, articles, tools, standards, or ideas discovered during research.
 ---
 
 # AI Index
@@ -32,6 +32,8 @@ Replace the placeholder before execution. The runner locates the repository rega
 - Restore: get the recycled entry, then use `entry restore`.
 
 Read [write-contracts.md](references/write-contracts.md) before constructing any create, update, delete, or restore request. Read [error-recovery.md](references/error-recovery.md) whenever a command fails or its completion is uncertain.
+
+For a research handoff that should publish discoveries as part of the same task, read [research-publishing.md](references/research-publishing.md) before the first candidate. Its capture policy decides what becomes an entry, how research types map to categories, and which fields may be inferred. Continue to use the mutation workflow below for every accepted candidate.
 
 ## Read workflow
 

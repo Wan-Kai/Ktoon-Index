@@ -43,6 +43,40 @@ describe("M6 Agent Skill 契约", () => {
     }
   });
 
+  it("为调研 Agent 提供可追踪的自动发布分支", () => {
+    const skill = readFileSync(resolve(skillRoot, "SKILL.md"), "utf8");
+    const workflow = readFileSync(resolve(skillRoot, "references/research-publishing.md"), "utf8");
+
+    expect(skill).toContain("references/research-publishing.md");
+    for (const invariant of [
+      "Apply its research-publishing workflow",
+      "Publish sequentially through the bundled CLI",
+      "Omit my rating and personal judgment unless I explicitly provide them",
+    ]) {
+      expect(workflow).toContain(invariant);
+    }
+    for (const [identity, category] of [
+      ["Normative protocol", "standards"],
+      ["Article, tutorial", "articles"],
+      ["Skill, library", "toolkit"],
+      ["Standalone product", "products"],
+      ["Original concept", "ideas"],
+    ]) {
+      expect(workflow).toContain(`| ${identity}`);
+      expect(
+        workflow
+          .split("\n")
+          .some((line) => line.startsWith(`| ${identity}`) && line.includes(`| \`${category}\` `)),
+      ).toBe(true);
+    }
+    expect(workflow).toContain("entry get <likely-id>");
+    expect(workflow).toContain("compare canonical source URLs");
+    expect(workflow).toContain("Any CLI failure leaves this research-specific branch");
+    expect(workflow).toContain("follows `error-recovery.md`");
+    expect(workflow).toContain("duplicate that remains recycled");
+    expect(workflow).toContain("not restore authorization");
+  });
+
   it("非法 ID 通过 runner 在联网前返回稳定校验错误", () => {
     const result = spawnSync(runner, ["entry", "get", "../bad-id"], {
       cwd: tmpdir(),
